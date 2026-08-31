@@ -1,0 +1,30 @@
+{
+  "words": {
+    "apple": {
+      "translations": ["maçã"],
+      "description": "Uma fruta arredondada que cresce na macieira.",
+      "score": 50
+    },
+    "cat": {
+      "translations": ["gato", "gata"],
+      "description": "Um pequeno mamífero doméstico da família dos felinos.",
+      "score": 30
+    },
+    "fall": {
+      "translations": ["cair", "queda"],
+      "description": "Mover-se para baixo, geralmente por causa da gravidade.",
+      "score": 40
+    },
+    "house": {
+      "translations": ["casa", "residência"],
+      "description": "Uma construção utilizada como moradia.",
+      "score": 50
+    },
+    "water": {
+      "translations": ["água"],
+      "description": "Um líquido transparente essencial para a vida.",
+      "score": 50
+    }
+  }
+}
+

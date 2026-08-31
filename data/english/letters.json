@@ -1,0 +1,31 @@
+{
+  "letters": [
+    { "value": "A", "weight": 8 },
+    { "value": "B", "weight": 2 },
+    { "value": "C", "weight": 3 },
+    { "value": "D", "weight": 4 },
+    { "value": "E", "weight": 12 },
+    { "value": "F", "weight": 2 },
+    { "value": "G", "weight": 2 },
+    { "value": "H", "weight": 6 },
+    { "value": "I", "weight": 7 },
+    { "value": "J", "weight": 1 },
+    { "value": "K", "weight": 1 },
+    { "value": "L", "weight": 4 },
+    { "value": "M", "weight": 2 },
+    { "value": "N", "weight": 7 },
+    { "value": "O", "weight": 7 },
+    { "value": "P", "weight": 2 },
+    { "value": "Q", "weight": 1 },
+    { "value": "R", "weight": 6 },
+    { "value": "S", "weight": 6 },
+    { "value": "T", "weight": 9 },
+    { "value": "U", "weight": 3 },
+    { "value": "V", "weight": 1 },
+    { "value": "W", "weight": 2 },
+    { "value": "X", "weight": 1 },
+    { "value": "Y", "weight": 2 },
+    { "value": "Z", "weight": 1 }
+  ]
+}
+
