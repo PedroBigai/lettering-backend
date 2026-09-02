@@ -1,14 +1,5 @@
 import { randomInt as cryptoRandomInt } from 'node:crypto';
-import type { LetterDefinition } from './contentSchemas';
-
-export type RandomInt = (maxExclusive: number) => number;
-
-export type BatchRules = {
-  size: number;
-  minVowels: number;
-  maxConsecutiveEqual: number;
-  maxAttempts?: number;
-};
+import type { BatchRules, LetterDefinition, RandomInt } from '../../interfaces/game';
 
 const englishVowels = new Set(['A', 'E', 'I', 'O', 'U']);
 
@@ -32,6 +23,8 @@ export function drawWeightedLetter(
 }
 
 function respectsBatchRules(batch: readonly string[], rules: BatchRules): boolean {
+  if (rules.uniqueLetters && new Set(batch).size !== batch.length) return false;
+
   const vowelCount = batch.filter((letter) => englishVowels.has(letter)).length;
   if (vowelCount < rules.minVowels) return false;
 
@@ -43,6 +36,22 @@ function respectsBatchRules(batch: readonly string[], rules: BatchRules): boolea
   }
 
   return true;
+}
+
+export function generateLetterOptions(
+  letters: readonly LetterDefinition[],
+  randomInt: RandomInt = cryptoRandomInt,
+): string[] {
+  return generateLetterBatch(
+    letters,
+    {
+      size: 4,
+      minVowels: 1,
+      maxConsecutiveEqual: 1,
+      uniqueLetters: true,
+    },
+    randomInt,
+  );
 }
 
 export function generateLetterBatch(
@@ -87,4 +96,3 @@ export function generateLetterBatch(
 
   throw new Error(`Unable to generate a valid letter batch after ${maxAttempts} attempts`);
 }
-

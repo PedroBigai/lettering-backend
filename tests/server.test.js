@@ -22,6 +22,7 @@ test('GET /health reports that the API is alive', async () => {
     const response = await fetch(`${baseUrl}/health`);
 
     assert.equal(response.status, 200);
+    assert.equal(typeof response.headers.get('x-request-id'), 'string');
     assert.deepEqual(await response.json(), { status: 'ok' });
   });
 });

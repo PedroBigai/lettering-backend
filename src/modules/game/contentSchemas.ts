@@ -34,9 +34,3 @@ export const wordDefinitionSchema = z.object({
 export const wordsFileSchema = z.object({
   words: z.record(z.string().regex(/^[a-z]+$/), wordDefinitionSchema),
 });
-
-export type LetterDefinition = z.infer<typeof letterDefinitionSchema>;
-export type LettersFile = z.infer<typeof lettersFileSchema>;
-export type WordDefinition = z.infer<typeof wordDefinitionSchema>;
-export type WordsFile = z.infer<typeof wordsFileSchema>;
-

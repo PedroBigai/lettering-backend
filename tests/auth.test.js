@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { AuthService } = require('../dist/modules/authService');
+const { AuthModule } = require('../dist/modules/authModule');
 const { createApp } = require('../dist/server/app');
 
 class InMemoryUserRepository {
@@ -30,12 +30,12 @@ class InMemoryUserRepository {
 
 function createTestApplication() {
   const users = new InMemoryUserRepository();
-  const authService = new AuthService(users, {
+  const authModule = new AuthModule(users, {
     jwtSecret: 'test-secret-with-at-least-32-characters',
     jwtExpiresInSeconds: 3600,
   });
 
-  return { app: createApp({ authService }), users };
+  return { app: createApp({ authModule }), users };
 }
 
 async function withServer(app, run) {
@@ -181,5 +181,25 @@ test('rejects duplicate users, invalid credentials and missing tokens', async ()
     const me = await request(baseUrl, '/api/v1/auth/me');
     assert.equal(me.response.status, 401);
     assert.equal(me.body.error.code, 'AUTHENTICATION_REQUIRED');
+  });
+});
+
+test('rate limits repeated login attempts for the same address and email', async () => {
+  const { app } = createTestApplication();
+
+  await withServer(app, async (baseUrl) => {
+    let lastResponse;
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      lastResponse = await request(baseUrl, '/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: 'missing@example.com',
+          password: 'wrong-password',
+        }),
+      });
+    }
+
+    assert.equal(lastResponse.response.status, 429);
+    assert.equal(lastResponse.body.error.code, 'RATE_LIMIT_EXCEEDED');
   });
 });

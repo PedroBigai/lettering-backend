@@ -1,30 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
-import {
-  DuplicateUserError,
-  type UserRecord,
-  type UserRepository,
-} from '../repositories/userRepository';
-import type { LoginInput, RegisterInput } from '../schemas/authSchemas';
+import type {
+  AuthenticationResult,
+  AuthModuleOptions,
+  LoginInput,
+  PublicUser,
+  RegisterInput,
+} from '../interfaces/auth';
+import type { UserRecord, UserRepository } from '../interfaces/user';
+import { DuplicateUserError } from './repositories/userRepository';
 import { ApiError } from '../server/errors';
-
-export type PublicUser = {
-  id: string;
-  username: string;
-  email: string;
-  createdAt: Date;
-};
-
-export type AuthenticationResult = {
-  user: PublicUser;
-  token: string;
-};
-
-type AuthServiceOptions = {
-  jwtSecret: string;
-  jwtExpiresInSeconds: number;
-};
 
 function publicUser(user: UserRecord): PublicUser {
   return {
@@ -35,13 +21,13 @@ function publicUser(user: UserRecord): PublicUser {
   };
 }
 
-export class AuthService {
+export class AuthModule {
   constructor(
     private readonly users: UserRepository,
-    private readonly options: AuthServiceOptions,
+    private readonly options: AuthModuleOptions,
   ) {}
 
-  async register(input: RegisterInput): Promise<AuthenticationResult> {
+  async registerUser(input: RegisterInput): Promise<AuthenticationResult> {
     const [emailUser, usernameUser] = await Promise.all([
       this.users.findByEmail(input.email),
       this.users.findByUsername(input.username),
@@ -69,10 +55,10 @@ export class AuthService {
       throw error;
     }
 
-    return { user: publicUser(user), token: this.createToken(user.id) };
+    return { user: publicUser(user), token: this.createAuthToken(user.id) };
   }
 
-  async login(input: LoginInput): Promise<AuthenticationResult> {
+  async loginUser(input: LoginInput): Promise<AuthenticationResult> {
     const user = await this.users.findByEmail(input.email);
     const passwordMatches = user
       ? await bcrypt.compare(input.password, user.passwordHash)
@@ -82,16 +68,16 @@ export class AuthService {
       throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     }
 
-    return { user: publicUser(user), token: this.createToken(user.id) };
+    return { user: publicUser(user), token: this.createAuthToken(user.id) };
   }
 
-  async getUser(userId: string): Promise<PublicUser> {
+  async getAuthenticatedUser(userId: string): Promise<PublicUser> {
     const user = await this.users.findById(userId);
     if (!user) throw new ApiError(401, 'INVALID_TOKEN', 'Invalid authentication token');
     return publicUser(user);
   }
 
-  verifyToken(token: string): string {
+  verifyAuthToken(token: string): string {
     try {
       const payload = jwt.verify(token, this.options.jwtSecret, {
         issuer: 'lettering-api',
@@ -107,7 +93,7 @@ export class AuthService {
     }
   }
 
-  private createToken(userId: string): string {
+  private createAuthToken(userId: string): string {
     return jwt.sign({}, this.options.jwtSecret, {
       subject: userId,
       expiresIn: this.options.jwtExpiresInSeconds,
@@ -120,4 +106,3 @@ export class AuthService {
     return typeof payload.sub === 'string' && payload.sub.length > 0;
   }
 }
-

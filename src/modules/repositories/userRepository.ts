@@ -1,27 +1,9 @@
 import type { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-
-export type UserRecord = {
-  id: string;
-  username: string;
-  email: string;
-  passwordHash: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type CreateUserRecord = {
-  id: string;
-  username: string;
-  email: string;
-  passwordHash: string;
-};
-
-export interface UserRepository {
-  findById(id: string): Promise<UserRecord | undefined>;
-  findByEmail(email: string): Promise<UserRecord | undefined>;
-  findByUsername(username: string): Promise<UserRecord | undefined>;
-  create(user: CreateUserRecord): Promise<UserRecord>;
-}
+import type {
+  CreateUserRecord,
+  UserRecord,
+  UserRepository,
+} from '../../interfaces/user';
 
 export class DuplicateUserError extends Error {
   constructor() {
@@ -106,4 +88,3 @@ export class MysqlUserRepository implements UserRepository {
     return created;
   }
 }
-

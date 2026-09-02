@@ -7,6 +7,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must contain at least 32 characters'),
   JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().positive().default(3600),
+  MATCH_INACTIVITY_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(1800),
+  MATCH_CLEANUP_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
   CORS_ORIGINS: z
     .string()
     .default(

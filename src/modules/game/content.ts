@@ -2,17 +2,11 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   lettersFileSchema,
-  type LetterDefinition,
-  type WordDefinition,
   wordsFileSchema,
 } from './contentSchemas';
+import type { EnglishContent, WordDefinition } from '../../interfaces/game';
 
-export type EnglishContent = {
-  letters: readonly LetterDefinition[];
-  words: ReadonlyMap<string, WordDefinition>;
-};
-
-const englishDataDirectory = path.resolve(__dirname, '../../data/english');
+const englishDataDirectory = path.resolve(__dirname, '../../../data/english');
 
 let cachedContent: EnglishContent | undefined;
 

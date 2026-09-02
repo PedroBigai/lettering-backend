@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
-import { env } from '../config/env';
+import { env } from '../utils/env';
 
 const migrationsDirectory = path.resolve(__dirname, '../../migrations');
 const connection = mysql.createConnection({

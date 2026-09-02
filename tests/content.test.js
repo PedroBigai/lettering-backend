@@ -4,8 +4,8 @@ const {
   findEnglishWord,
   loadEnglishContent,
   normalizeEnglishWord,
-} = require('../dist/game/content');
-const { lettersFileSchema } = require('../dist/game/contentSchemas');
+} = require('../dist/modules/game/content');
+const { lettersFileSchema } = require('../dist/modules/game/contentSchemas');
 
 test('loads and validates the English content files', async () => {
   const content = await loadEnglishContent();
@@ -30,4 +30,3 @@ test('rejects duplicate letter definitions', () => {
 
   assert.equal(result.success, false);
 });
-

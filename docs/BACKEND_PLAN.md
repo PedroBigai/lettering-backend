@@ -28,23 +28,59 @@ Concluído:
 - rotas `POST /api/v1/auth/register`, `POST /api/v1/auth/login` e `GET /api/v1/auth/me`;
 - tratamento de cadastros duplicados, inclusive em condição de concorrência;
 - testes isolados de autenticação sem alteração dos usuários reais do MySQL.
+- CORS restrito às origens configuradas em `CORS_ORIGINS`;
+- login do frontend integrado às rotas reais `/api/v1/auth/login` e `/api/v1/auth/me`;
+- mensagens distintas para credenciais inválidas, payload inválido e indisponibilidade da API;
+- fluxo de convidado preservado e independente da autenticação server-side.
+- rota autenticada `POST /api/v1/matches` para criação de partida clássica solo;
+- criação transacional de `matches`, `match_players` e quatro opções de letras;
+- quatro opções distintas por turno, com pelo menos uma vogal;
+- rota autenticada `GET /api/v1/matches/:matchId/state` para snapshot oficial;
+- isolamento do snapshot por usuário e matriz oficial alinhada ao frontend em 10x9.
+- engine pura para queda, coluna cheia, gravidade e tabuleiro cheio;
+- detecção server-side da primeira palavra horizontal ou vertical que contenha a nova peça;
+- rota `POST /api/v1/matches/:matchId/pieces/place` para testar jogadas por HTTP;
+- jogada transacional com bloqueio do jogador, `board_version`, pontuação, remoção,
+  gravidade, descarte das opções não escolhidas e geração das quatro opções seguintes.
+- três vidas persistidas por jogador; ao alcançar a linha zero, perde uma vida e
+  limpa a matriz; a terceira perda encerra a partida;
+- abandono autenticado em `POST /api/v1/matches/:matchId/leave`.
+- histórico paginado e detalhe autenticado de partidas;
+- tempo oficial calculado no backend e congelado durante pausas;
+- pause/resume server-side e bloqueio de jogadas enquanto pausado;
+- expiração periódica de partidas inativas;
+- limite de uma partida ativa por usuário, rate limits, request ID e logs HTTP estruturados.
 
-Próxima etapa: criação de partida solo, participante e lote inicial de letras.
+Próxima etapa: Socket.IO e reconexão usando o snapshot oficial, seguidos da integração com o frontend.
 
 Organização adotada para a API:
 
 ```text
 src/
-├── routes/          # associação entre URL, middleware e controller
-├── controllers/     # entrada HTTP e montagem da resposta
-├── middlewares/     # autenticação e outros filtros HTTP
+├── routes/
+│   └── routes.ts    # registro central de todas as rotas da API
+├── controllers/     # um arquivo por action HTTP (ex.: getMatches.ts)
+├── interfaces/      # contratos TypeScript separados por contexto
 ├── schemas/         # validação dos payloads com Zod
-├── modules/         # regras e serviços da aplicação
-├── repositories/    # acesso ao MySQL
-├── game/            # regras puras e conteúdo do jogo
-├── config/          # ambiente e conexões
-└── server/          # configuração do Express e erros globais
+├── modules/         # serviços, regras do jogo e acesso ao MySQL
+│   ├── game/        # regras puras e conteúdo do jogo
+│   └── repositories/# acesso ao MySQL
+├── utils/           # ambiente e conexão compartilhada
+└── server/          # configuração do Express, erros e middlewares HTTP
+    └── middlewares/
 ```
+
+Fluxo de código adotado:
+
+```text
+route → controller (action + contexto) → module → repository
+```
+
+Exemplos: `getMatches`, `postMatch`, `postMatchPiece`, `postPauseMatch` e
+`postAuth`. O arquivo e a função usam o mesmo nome no padrão ação HTTP + contexto.
+Cada controller exporta diretamente um handler `(request, response)`;
+controllers validam entrada e resposta HTTP, enquanto modules processam a regra
+da aplicação.
 
 ## 1. Conceito do jogo
 
@@ -52,10 +88,10 @@ Lettering é um jogo inspirado em Tetris. Letras caem em uma matriz e o jogador 
 
 O MVP utilizará:
 
-- matriz de 12 linhas por 9 colunas;
+- matriz de 10 linhas por 9 colunas, acompanhando o tabuleiro atual do frontend;
 - palavras somente em inglês;
 - traduções e descrições em português;
-- detecção horizontal;
+- detecção horizontal e vertical;
 - primeira palavra válida encontrada após a jogada;
 - partidas solo e estrutura preparada para multiplayer;
 - MySQL para estado e histórico;
@@ -80,7 +116,7 @@ O frontend não define a letra, a linha final, a validade da palavra nem a pontu
 - autenticar o usuário;
 - criar e finalizar partidas;
 - gerar letras aleatórias por jogador;
-- armazenar a fila de letras;
+- armazenar as quatro opções oficiais de letras de cada turno;
 - calcular a linha final da peça;
 - manter a matriz oficial;
 - detectar e validar palavras;
@@ -123,8 +159,8 @@ O WebSocket não recebe cada frame da animação. A queda visual acontece soment
 3. O backend cria `matches` e o primeiro `match_players`.
 4. O frontend conecta ao WebSocket usando o JWT.
 5. O frontend entra na sala da partida.
-6. O backend envia um snapshot e o lote inicial de letras.
-7. O frontend anima a letra ativa.
+6. O backend envia um snapshot e as quatro opções iniciais de letras.
+7. O jogador escolhe uma das quatro letras e o frontend a anima.
 8. O jogador escolhe uma coluna.
 9. O frontend envia `pieceId`, `column` e `boardVersion`.
 10. O backend valida o comando e calcula a linha final.
@@ -132,7 +168,7 @@ O WebSocket não recebe cada frame da animação. A queda visual acontece soment
 12. Se encontrar, registra a palavra, soma pontos, remove as letras e aplica gravidade.
 13. O backend incrementa `board_version` e confirma a transação.
 14. O frontend recebe e anima o resultado oficial.
-15. Quando a fila estiver baixa, o backend gera e envia outro lote.
+15. Depois da jogada, o backend descarta as três opções não escolhidas e gera outras quatro.
 16. Ao ocorrer game over, o backend finaliza o participante e, quando aplicável, a partida.
 
 ## 5. Regra da matriz
@@ -140,7 +176,7 @@ O WebSocket não recebe cada frame da animação. A queda visual acontece soment
 A matriz possui:
 
 ```text
-linhas:  0 até 11
+linhas:  0 até 9
 colunas: 0 até 8
 ```
 
@@ -153,7 +189,7 @@ O backend rejeita a jogada quando:
 - a coluna está fora do intervalo;
 - a coluna está cheia;
 - a peça não pertence ao jogador;
-- a peça não é a próxima da fila;
+- a peça não pertence às quatro opções ativas do turno;
 - a peça já foi utilizada;
 - a partida não está ativa;
 - o jogador não pertence à partida;
@@ -163,10 +199,11 @@ O backend rejeita a jogada quando:
 
 Regras do MVP:
 
-- somente palavras horizontais;
+- palavras horizontais e verticais;
 - tamanho mínimo padrão de três letras;
 - a palavra precisa conter a peça recém-posicionada;
-- busca da esquerda para a direita;
+- prioridade horizontal; se nenhuma palavra for encontrada, busca vertical;
+- busca da esquerda para a direita na horizontal e de cima para baixo na vertical;
 - busca a partir do tamanho mínimo;
 - a primeira palavra válida encerra a busca;
 - somente uma palavra é contabilizada por posicionamento na primeira versão.
@@ -199,10 +236,12 @@ Cada jogador recebe uma sequência aleatória e independente. A sequência efeti
 
 Regras iniciais:
 
-- lote inicial de 10 letras;
-- quando restarem três letras, gerar mais sete;
-- pelo menos três vogais por lote de 10;
-- no máximo duas letras iguais consecutivas;
+- quatro opções oficiais por turno, acompanhando a experiência atual do frontend;
+- as quatro opções são distintas;
+- pelo menos uma opção é vogal;
+- o jogador escolhe uma opção e uma coluna;
+- a opção escolhida é posicionada e as outras três são marcadas como `discarded`;
+- após cada jogada aceita, são geradas outras quatro opções;
 - sorteio ponderado com os pesos do JSON;
 - aleatoriedade gerada no backend com `node:crypto`, não `Math.random()`;
 - cada jogador multiplayer possui sua própria fila.
@@ -304,7 +343,7 @@ id                  CHAR(36) PK
 language            VARCHAR(10) NOT NULL
 mode                VARCHAR(30) NOT NULL
 status              VARCHAR(20) NOT NULL
-board_rows          TINYINT UNSIGNED NOT NULL DEFAULT 12
+board_rows          TINYINT UNSIGNED NOT NULL DEFAULT 10
 board_columns       TINYINT UNSIGNED NOT NULL DEFAULT 9
 min_word_length     TINYINT UNSIGNED NOT NULL DEFAULT 3
 max_players         TINYINT UNSIGNED NOT NULL DEFAULT 1
@@ -328,12 +367,16 @@ status              VARCHAR(20) NOT NULL
 score               INTEGER NOT NULL DEFAULT 0
 level_reached       INTEGER NOT NULL DEFAULT 1
 board_version       INTEGER NOT NULL DEFAULT 0
+lives_remaining     TINYINT UNSIGNED NOT NULL DEFAULT 3
 game_time_ms        INTEGER NOT NULL DEFAULT 0
+paused_at           DATETIME(3) NULL
+total_paused_ms     BIGINT UNSIGNED NOT NULL DEFAULT 0
+last_activity_at    DATETIME(3) NOT NULL
 joined_at           DATETIME(3) NOT NULL
 finished_at         DATETIME(3) NULL
 ```
 
-Status: `waiting`, `playing`, `game_over` ou `left`.
+Status: `waiting`, `playing`, `paused`, `game_over` ou `left`.
 
 Existe uma restrição única para `(match_id, user_id)`.
 
@@ -355,14 +398,15 @@ placed_at           DATETIME(3) NULL
 cleared_at          DATETIME(3) NULL
 ```
 
-Status: `queued`, `active`, `placed`, `cleared` ou `discarded`.
+Status: `queued`, `active`, `placed`, `cleared` ou `discarded`. No modo clássico,
+as quatro opções disponíveis no turno possuem status `active`.
 
 Restrições principais:
 
 ```text
 UNIQUE (match_player_id, sequence_number)
 UNIQUE (match_player_id, row_position, column_position)
-row_position entre 0 e 11
+row_position entre 0 e 9
 column_position entre 0 e 8
 ```
 
@@ -402,6 +446,10 @@ POST   /auth/login
 GET    /auth/me
 
 POST   /matches
+POST   /matches/:matchId/pieces/place
+POST   /matches/:matchId/leave
+POST   /matches/:matchId/pause
+POST   /matches/:matchId/resume
 POST   /matches/:matchId/join
 GET    /matches
 GET    /matches/:matchId
@@ -432,7 +480,8 @@ Posicionamento:
 }
 ```
 
-O cliente não envia letra, linha, palavra ou pontuação.
+O cliente não envia letra, linha, palavra ou pontuação. O `pieceId` escolhido
+deve pertencer às quatro opções `active` recebidas no snapshot.
 
 ### Servidor para cliente
 
@@ -492,8 +541,8 @@ Cada comando `piece:place` deve executar uma única transação:
 7. atualizar a pontuação;
 8. limpar as letras da palavra;
 9. aplicar gravidade;
-10. ativar a próxima peça;
-11. gerar novo lote quando necessário;
+10. descartar as outras três opções do turno;
+11. gerar quatro novas opções ativas;
 12. incrementar `board_version`;
 13. confirmar a transação;
 14. emitir eventos WebSocket somente após o commit.
@@ -527,6 +576,10 @@ Após reconectar:
 - uma peça não pode ser utilizada duas vezes;
 - eventos WebSocket emitidos somente após commit no MySQL;
 - placares do modo convidado nunca entram no ranking oficial.
+- uma única partida pode permanecer ativa por usuário;
+- login e criação de partidas possuem rate limit em memória;
+- partidas sem atividade são finalizadas após o timeout configurado;
+- cada resposta possui `X-Request-Id` para correlação de logs.
 
 ## 15. Ordem de implementação
 
@@ -535,7 +588,7 @@ Após reconectar:
 3. Implementar criação de partida solo.
 4. Implementar geração ponderada de letras.
 5. Implementar serviço de posicionamento e gravidade sem WebSocket.
-6. Implementar detecção da primeira palavra horizontal válida.
+6. Implementar detecção da primeira palavra horizontal ou vertical válida.
 7. Implementar pontuação e remoção transacional.
 8. Criar testes unitários da matriz e das palavras.
 9. Adicionar Socket.IO chamando os mesmos serviços internos.

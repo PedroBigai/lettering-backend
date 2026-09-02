@@ -1,6 +1,7 @@
 import express, { type ErrorRequestHandler } from 'express';
-import type { AuthService } from '../modules/authService';
-import { createAuthRouter } from '../routes/authRoutes';
+import type { AppDependencies } from '../interfaces/server';
+import { createApiRouter } from '../routes/routes';
+import { requestContext } from './middlewares/requestContext';
 import { ApiError } from './errors';
 import { ZodError } from 'zod';
 
@@ -47,16 +48,14 @@ const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => 
   });
 };
 
-type AppDependencies = {
-  authService?: AuthService;
-  allowedOrigins?: readonly string[];
-};
-
 export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
   const allowedOrigins = new Set(dependencies.allowedOrigins ?? []);
+  app.locals.authModule = dependencies.authModule;
+  app.locals.matchModule = dependencies.matchModule;
 
   app.disable('x-powered-by');
+  app.use(requestContext(dependencies.enableRequestLogging ?? false));
   app.use((request, response, next) => {
     const origin = request.header('origin');
 
@@ -94,8 +93,11 @@ export function createApp(dependencies: AppDependencies = {}) {
     response.status(200).json({ status: 'ok' });
   });
 
-  if (dependencies.authService) {
-    app.use('/api/v1/auth', createAuthRouter(dependencies.authService));
+  if (dependencies.authModule) {
+    app.use(
+      '/api/v1',
+      createApiRouter(Boolean(dependencies.matchModule)),
+    );
   }
 
   app.use((_request, response) => {
