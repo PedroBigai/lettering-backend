@@ -25,12 +25,30 @@ export const lettersFileSchema = z
     });
   });
 
+const translationListSchema = z.array(z.string().trim().min(1)).min(1);
+const localizedTranslationsSchema = z.object({
+  'pt-BR': translationListSchema,
+  'es-ES': translationListSchema,
+});
+const localizedDescriptionSchema = z.object({
+  'pt-BR': z.string().trim().min(1),
+  'en-US': z.string().trim().min(1),
+  'es-ES': z.string().trim().min(1),
+});
+
 export const wordDefinitionSchema = z.object({
-  translations: z.array(z.string().trim().min(1)).min(1),
-  description: z.string().trim().min(1),
+  word: z.string().regex(/^[A-Z]+$/, 'Word must contain only uppercase A-Z characters'),
+  translations: localizedTranslationsSchema,
+  description: localizedDescriptionSchema,
   score: z.number().int().positive(),
 });
 
+const themeSchema = z.object({
+  words: z.array(wordDefinitionSchema).min(1),
+});
+
 export const wordsFileSchema = z.object({
-  words: z.record(z.string().regex(/^[a-z]+$/), wordDefinitionSchema),
+  schemaVersion: z.literal(1),
+  language: z.literal('en-US'),
+  general: z.record(z.string().trim().min(1), themeSchema),
 });

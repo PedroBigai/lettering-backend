@@ -1,5 +1,9 @@
 # Lettering — Plano do Backend
 
+> Este plano registra decisões históricas e pode conter exemplos antigos. Para o
+> estado consolidado e atualizado do projeto, consulte
+> [`PROJECT_STATUS.md`](./PROJECT_STATUS.md).
+
 Documento de alinhamento para a primeira versão do backend do Lettering.
 
 Estado confirmado em 27/08/2026: as migrations `001`, `002` e `003` estão aplicadas no MySQL.

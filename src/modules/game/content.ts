@@ -31,13 +31,60 @@ export async function loadEnglishContent(): Promise<EnglishContent> {
 
   const lettersFile = lettersFileSchema.parse(lettersJson);
   const wordsFile = wordsFileSchema.parse(wordsJson);
+  const words = new Map<string, WordDefinition>();
+
+  Object.values(wordsFile.general).forEach((theme) => {
+    theme.words.forEach((entry) => {
+      const key = normalizeEnglishWord(entry.word);
+      const current = words.get(key);
+
+      if (!current) {
+        words.set(key, {
+          translations: copyLocalizedLists(entry.translations),
+          description: Object.fromEntries(
+            Object.entries(entry.description).map(([language, value]) => [language, [value]]),
+          ),
+          score: entry.score,
+        });
+        return;
+      }
+
+      mergeLocalizedLists(current.translations, entry.translations);
+      mergeLocalizedLists(
+        current.description,
+        Object.fromEntries(
+          Object.entries(entry.description).map(([language, value]) => [language, [value]]),
+        ),
+      );
+      current.score = Math.max(current.score, entry.score);
+    });
+  });
 
   cachedContent = Object.freeze({
     letters: Object.freeze(lettersFile.letters),
-    words: new Map(Object.entries(wordsFile.words)),
+    words,
   });
 
   return cachedContent;
+}
+
+function copyLocalizedLists(values: Record<string, string[]>): Record<string, string[]> {
+  return Object.fromEntries(
+    Object.entries(values).map(([language, entries]) => [language, [...entries]]),
+  );
+}
+
+function mergeLocalizedLists(
+  target: Record<string, string[]>,
+  source: Record<string, string[]>,
+): void {
+  Object.entries(source).forEach(([language, entries]) => {
+    const current = target[language] ?? [];
+    entries.forEach((entry) => {
+      if (!current.includes(entry)) current.push(entry);
+    });
+    target[language] = current;
+  });
 }
 
 export function normalizeEnglishWord(value: string): string {

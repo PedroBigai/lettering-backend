@@ -94,8 +94,8 @@ export class MatchModule {
           const definition = this.content.words.get(word.formedWord);
           return {
             ...word,
-            translations: definition?.translations ?? [],
-            description: definition?.description ?? '',
+            translations: definition?.translations ?? {},
+            description: definition?.description ?? {},
           };
         }),
         pendingWord: snapshot.pendingWord
@@ -103,8 +103,8 @@ export class MatchModule {
               word: snapshot.pendingWord.formedWord,
               direction: snapshot.pendingWord.direction,
               pointsEarned: snapshot.pendingWord.pointsEarned,
-              translations: pendingDefinition?.translations ?? [],
-              description: pendingDefinition?.description ?? '',
+              translations: pendingDefinition?.translations ?? {},
+              description: pendingDefinition?.description ?? {},
               cells: snapshot.pendingWord.cells,
             }
           : null,
@@ -151,8 +151,8 @@ export class MatchModule {
       ...result,
       confirmedWord: {
         ...result.confirmedWord,
-        translations: definition?.translations ?? [],
-        description: definition?.description ?? '',
+        translations: definition?.translations ?? {},
+        description: definition?.description ?? {},
       },
       board: snapshot.match.board,
       letterOptions: snapshot.match.letterOptions,

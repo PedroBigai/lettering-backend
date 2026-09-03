@@ -8,10 +8,16 @@ import type {
 
 export type LetterDefinition = z.infer<typeof letterDefinitionSchema>;
 export type LettersFile = z.infer<typeof lettersFileSchema>;
-export type WordDefinition = z.infer<typeof wordDefinitionSchema>;
+export type WordContentEntry = z.infer<typeof wordDefinitionSchema>;
 export type WordsFile = z.infer<typeof wordsFileSchema>;
 export type RandomInt = (maxExclusive: number) => number;
 export type WordDirection = 'horizontal' | 'vertical';
+
+export interface WordDefinition {
+  translations: Record<string, string[]>;
+  description: Record<string, string[]>;
+  score: number;
+}
 
 export interface EnglishContent {
   letters: readonly LetterDefinition[];

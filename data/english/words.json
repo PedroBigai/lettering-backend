@@ -1,30 +1,1714 @@
 {
-  "words": {
-    "apple": {
-      "translations": ["maçã"],
-      "description": "Uma fruta arredondada que cresce na macieira.",
-      "score": 50
+  "schemaVersion": 1,
+  "language": "en-US",
+  "general": {
+    "animals": {
+      "words": [
+        {
+          "word": "CAT",
+          "translations": {
+            "pt-BR": [
+              "gato",
+              "gata"
+            ],
+            "es-ES": [
+              "gato"
+            ]
+          },
+          "description": {
+            "pt-BR": "Um pequeno mamífero doméstico da família dos felinos.",
+            "en-US": "cat",
+            "es-ES": "gato"
+          },
+          "score": 30
+        },
+        {
+          "word": "DOG",
+          "translations": {
+            "pt-BR": [
+              "cachorro"
+            ],
+            "es-ES": [
+              "perro"
+            ]
+          },
+          "description": {
+            "pt-BR": "cachorro",
+            "en-US": "dog",
+            "es-ES": "perro"
+          },
+          "score": 30
+        },
+        {
+          "word": "BIRD",
+          "translations": {
+            "pt-BR": [
+              "pássaro"
+            ],
+            "es-ES": [
+              "pájaro"
+            ]
+          },
+          "description": {
+            "pt-BR": "pássaro",
+            "en-US": "bird",
+            "es-ES": "pájaro"
+          },
+          "score": 40
+        },
+        {
+          "word": "FISH",
+          "translations": {
+            "pt-BR": [
+              "peixe"
+            ],
+            "es-ES": [
+              "pez"
+            ]
+          },
+          "description": {
+            "pt-BR": "peixe",
+            "en-US": "fish",
+            "es-ES": "pez"
+          },
+          "score": 40
+        },
+        {
+          "word": "LION",
+          "translations": {
+            "pt-BR": [
+              "leão"
+            ],
+            "es-ES": [
+              "león"
+            ]
+          },
+          "description": {
+            "pt-BR": "leão",
+            "en-US": "lion",
+            "es-ES": "león"
+          },
+          "score": 40
+        },
+        {
+          "word": "BEAR",
+          "translations": {
+            "pt-BR": [
+              "urso"
+            ],
+            "es-ES": [
+              "oso"
+            ]
+          },
+          "description": {
+            "pt-BR": "urso",
+            "en-US": "bear",
+            "es-ES": "oso"
+          },
+          "score": 40
+        }
+      ]
     },
-    "cat": {
-      "translations": ["gato", "gata"],
-      "description": "Um pequeno mamífero doméstico da família dos felinos.",
-      "score": 30
+    "objects": {
+      "words": [
+        {
+          "word": "HOUSE",
+          "translations": {
+            "pt-BR": [
+              "casa",
+              "residência"
+            ],
+            "es-ES": [
+              "casa"
+            ]
+          },
+          "description": {
+            "pt-BR": "Uma construção utilizada como moradia.",
+            "en-US": "house",
+            "es-ES": "casa"
+          },
+          "score": 50
+        },
+        {
+          "word": "CHAIR",
+          "translations": {
+            "pt-BR": [
+              "cadeira"
+            ],
+            "es-ES": [
+              "silla"
+            ]
+          },
+          "description": {
+            "pt-BR": "cadeira",
+            "en-US": "chair",
+            "es-ES": "silla"
+          },
+          "score": 50
+        },
+        {
+          "word": "TABLE",
+          "translations": {
+            "pt-BR": [
+              "mesa"
+            ],
+            "es-ES": [
+              "mesa"
+            ]
+          },
+          "description": {
+            "pt-BR": "mesa",
+            "en-US": "table",
+            "es-ES": "mesa"
+          },
+          "score": 50
+        },
+        {
+          "word": "DOOR",
+          "translations": {
+            "pt-BR": [
+              "porta"
+            ],
+            "es-ES": [
+              "puerta"
+            ]
+          },
+          "description": {
+            "pt-BR": "porta",
+            "en-US": "door",
+            "es-ES": "puerta"
+          },
+          "score": 40
+        },
+        {
+          "word": "DICE",
+          "translations": {
+            "pt-BR": [
+              "dados"
+            ],
+            "es-ES": [
+              "dados"
+            ]
+          },
+          "description": {
+            "pt-BR": "dados",
+            "en-US": "dice",
+            "es-ES": "dados"
+          },
+          "score": 40
+        },
+        {
+          "word": "BOOK",
+          "translations": {
+            "pt-BR": [
+              "livro"
+            ],
+            "es-ES": [
+              "libro"
+            ]
+          },
+          "description": {
+            "pt-BR": "livro",
+            "en-US": "book",
+            "es-ES": "libro"
+          },
+          "score": 40
+        },
+        {
+          "word": "PLAYER",
+          "translations": {
+            "pt-BR": [
+              "jogador"
+            ],
+            "es-ES": [
+              "jugador"
+            ]
+          },
+          "description": {
+            "pt-BR": "jogador",
+            "en-US": "player",
+            "es-ES": "jugador"
+          },
+          "score": 60
+        },
+        {
+          "word": "GAME",
+          "translations": {
+            "pt-BR": [
+              "jogo"
+            ],
+            "es-ES": [
+              "juego"
+            ]
+          },
+          "description": {
+            "pt-BR": "jogo",
+            "en-US": "game",
+            "es-ES": "juego"
+          },
+          "score": 40
+        },
+        {
+          "word": "WORD",
+          "translations": {
+            "pt-BR": [
+              "palavra"
+            ],
+            "es-ES": [
+              "palabra"
+            ]
+          },
+          "description": {
+            "pt-BR": "palavra",
+            "en-US": "word",
+            "es-ES": "palabra"
+          },
+          "score": 40
+        },
+        {
+          "word": "LETTER",
+          "translations": {
+            "pt-BR": [
+              "letra"
+            ],
+            "es-ES": [
+              "letra"
+            ]
+          },
+          "description": {
+            "pt-BR": "letra",
+            "en-US": "letter",
+            "es-ES": "letra"
+          },
+          "score": 60
+        },
+        {
+          "word": "TRAIN",
+          "translations": {
+            "pt-BR": [
+              "trem"
+            ],
+            "es-ES": [
+              "tren"
+            ]
+          },
+          "description": {
+            "pt-BR": "trem",
+            "en-US": "train",
+            "es-ES": "tren"
+          },
+          "score": 50
+        },
+        {
+          "word": "LETTERING",
+          "translations": {
+            "pt-BR": [
+              "letreiramento"
+            ],
+            "es-ES": [
+              "rotulación"
+            ]
+          },
+          "description": {
+            "pt-BR": "letreiramento",
+            "en-US": "lettering",
+            "es-ES": "rotulación"
+          },
+          "score": 90
+        },
+        {
+          "word": "FAMILY",
+          "translations": {
+            "pt-BR": [
+              "família"
+            ],
+            "es-ES": [
+              "familia"
+            ]
+          },
+          "description": {
+            "pt-BR": "família",
+            "en-US": "family",
+            "es-ES": "familia"
+          },
+          "score": 60
+        },
+        {
+          "word": "FRIEND",
+          "translations": {
+            "pt-BR": [
+              "amigo"
+            ],
+            "es-ES": [
+              "amigo"
+            ]
+          },
+          "description": {
+            "pt-BR": "amigo",
+            "en-US": "friend",
+            "es-ES": "amigo"
+          },
+          "score": 60
+        },
+        {
+          "word": "COMPUTER",
+          "translations": {
+            "pt-BR": [
+              "computador"
+            ],
+            "es-ES": [
+              "computadora"
+            ]
+          },
+          "description": {
+            "pt-BR": "computador",
+            "en-US": "computer",
+            "es-ES": "computadora"
+          },
+          "score": 80
+        },
+        {
+          "word": "LANGUAGE",
+          "translations": {
+            "pt-BR": [
+              "idioma"
+            ],
+            "es-ES": [
+              "idioma"
+            ]
+          },
+          "description": {
+            "pt-BR": "idioma",
+            "en-US": "language",
+            "es-ES": "idioma"
+          },
+          "score": 80
+        },
+        {
+          "word": "TETRIS",
+          "translations": {
+            "pt-BR": [
+              "Tetris"
+            ],
+            "es-ES": [
+              "Tetris"
+            ]
+          },
+          "description": {
+            "pt-BR": "Tetris",
+            "en-US": "Tetris",
+            "es-ES": "Tetris"
+          },
+          "score": 60
+        },
+        {
+          "word": "MUSIC",
+          "translations": {
+            "pt-BR": [
+              "música"
+            ],
+            "es-ES": [
+              "música"
+            ]
+          },
+          "description": {
+            "pt-BR": "música",
+            "en-US": "music",
+            "es-ES": "música"
+          },
+          "score": 50
+        },
+        {
+          "word": "PHONE",
+          "translations": {
+            "pt-BR": [
+              "telefone"
+            ],
+            "es-ES": [
+              "teléfono"
+            ]
+          },
+          "description": {
+            "pt-BR": "telefone",
+            "en-US": "phone",
+            "es-ES": "teléfono"
+          },
+          "score": 50
+        },
+        {
+          "word": "WINDOW",
+          "translations": {
+            "pt-BR": [
+              "janela"
+            ],
+            "es-ES": [
+              "ventana"
+            ]
+          },
+          "description": {
+            "pt-BR": "janela",
+            "en-US": "window",
+            "es-ES": "ventana"
+          },
+          "score": 60
+        },
+        {
+          "word": "WATCH",
+          "translations": {
+            "pt-BR": [
+              "relógio"
+            ],
+            "es-ES": [
+              "reloj"
+            ]
+          },
+          "description": {
+            "pt-BR": "relógio de pulso",
+            "en-US": "wristwatch",
+            "es-ES": "reloj de pulsera"
+          },
+          "score": 50
+        },
+        {
+          "word": "SCORE",
+          "translations": {
+            "pt-BR": [
+              "pontuação"
+            ],
+            "es-ES": [
+              "puntuación"
+            ]
+          },
+          "description": {
+            "pt-BR": "pontuação",
+            "en-US": "score",
+            "es-ES": "puntuación"
+          },
+          "score": 50
+        },
+        {
+          "word": "BLOCK",
+          "translations": {
+            "pt-BR": [
+              "bloco"
+            ],
+            "es-ES": [
+              "bloque"
+            ]
+          },
+          "description": {
+            "pt-BR": "bloco",
+            "en-US": "block",
+            "es-ES": "bloque"
+          },
+          "score": 50
+        }
+      ]
     },
-    "fall": {
-      "translations": ["cair", "queda"],
-      "description": "Mover-se para baixo, geralmente por causa da gravidade.",
-      "score": 40
+    "verbs": {
+      "words": [
+        {
+          "word": "RUN",
+          "translations": {
+            "pt-BR": [
+              "correr"
+            ],
+            "es-ES": [
+              "correr"
+            ]
+          },
+          "description": {
+            "pt-BR": "correr",
+            "en-US": "run",
+            "es-ES": "correr"
+          },
+          "score": 30
+        },
+        {
+          "word": "WALK",
+          "translations": {
+            "pt-BR": [
+              "caminhar"
+            ],
+            "es-ES": [
+              "caminar"
+            ]
+          },
+          "description": {
+            "pt-BR": "caminhar",
+            "en-US": "walk",
+            "es-ES": "caminar"
+          },
+          "score": 40
+        },
+        {
+          "word": "JUMP",
+          "translations": {
+            "pt-BR": [
+              "pular"
+            ],
+            "es-ES": [
+              "saltar"
+            ]
+          },
+          "description": {
+            "pt-BR": "pular",
+            "en-US": "jump",
+            "es-ES": "saltar"
+          },
+          "score": 40
+        },
+        {
+          "word": "READ",
+          "translations": {
+            "pt-BR": [
+              "ler"
+            ],
+            "es-ES": [
+              "leer"
+            ]
+          },
+          "description": {
+            "pt-BR": "ler",
+            "en-US": "read",
+            "es-ES": "leer"
+          },
+          "score": 40
+        },
+        {
+          "word": "WRITE",
+          "translations": {
+            "pt-BR": [
+              "escrever"
+            ],
+            "es-ES": [
+              "escribir"
+            ]
+          },
+          "description": {
+            "pt-BR": "escrever",
+            "en-US": "write",
+            "es-ES": "escribir"
+          },
+          "score": 50
+        },
+        {
+          "word": "PLAY",
+          "translations": {
+            "pt-BR": [
+              "jogar"
+            ],
+            "es-ES": [
+              "jugar"
+            ]
+          },
+          "description": {
+            "pt-BR": "jogar",
+            "en-US": "play",
+            "es-ES": "jugar"
+          },
+          "score": 40
+        },
+        {
+          "word": "FALL",
+          "translations": {
+            "pt-BR": [
+              "cair",
+              "queda"
+            ],
+            "es-ES": [
+              "caer"
+            ]
+          },
+          "description": {
+            "pt-BR": "Mover-se para baixo, geralmente por causa da gravidade.",
+            "en-US": "fall",
+            "es-ES": "caer"
+          },
+          "score": 40
+        },
+        {
+          "word": "FALLING",
+          "translations": {
+            "pt-BR": [
+              "caindo"
+            ],
+            "es-ES": [
+              "cayendo"
+            ]
+          },
+          "description": {
+            "pt-BR": "caindo",
+            "en-US": "falling",
+            "es-ES": "cayendo"
+          },
+          "score": 70
+        },
+        {
+          "word": "LEARNING",
+          "translations": {
+            "pt-BR": [
+              "aprendizado"
+            ],
+            "es-ES": [
+              "aprendizaje"
+            ]
+          },
+          "description": {
+            "pt-BR": "aprendizado",
+            "en-US": "learning",
+            "es-ES": "aprendizaje"
+          },
+          "score": 80
+        },
+        {
+          "word": "SMILE",
+          "translations": {
+            "pt-BR": [
+              "sorriso"
+            ],
+            "es-ES": [
+              "sonrisa"
+            ]
+          },
+          "description": {
+            "pt-BR": "sorriso",
+            "en-US": "smile",
+            "es-ES": "sonrisa"
+          },
+          "score": 50
+        },
+        {
+          "word": "LOVE",
+          "translations": {
+            "pt-BR": [
+              "amor"
+            ],
+            "es-ES": [
+              "amor"
+            ]
+          },
+          "description": {
+            "pt-BR": "amor",
+            "en-US": "love",
+            "es-ES": "amor"
+          },
+          "score": 40
+        },
+        {
+          "word": "DREAM",
+          "translations": {
+            "pt-BR": [
+              "sonho"
+            ],
+            "es-ES": [
+              "sueño"
+            ]
+          },
+          "description": {
+            "pt-BR": "sonho",
+            "en-US": "dream",
+            "es-ES": "sueño"
+          },
+          "score": 50
+        },
+        {
+          "word": "THINK",
+          "translations": {
+            "pt-BR": [
+              "pensar"
+            ],
+            "es-ES": [
+              "pensar"
+            ]
+          },
+          "description": {
+            "pt-BR": "pensar",
+            "en-US": "think",
+            "es-ES": "pensar"
+          },
+          "score": 50
+        },
+        {
+          "word": "SPEAK",
+          "translations": {
+            "pt-BR": [
+              "falar"
+            ],
+            "es-ES": [
+              "hablar"
+            ]
+          },
+          "description": {
+            "pt-BR": "falar",
+            "en-US": "speak",
+            "es-ES": "hablar"
+          },
+          "score": 50
+        },
+        {
+          "word": "LISTEN",
+          "translations": {
+            "pt-BR": [
+              "escutar"
+            ],
+            "es-ES": [
+              "escuchar"
+            ]
+          },
+          "description": {
+            "pt-BR": "escutar",
+            "en-US": "listen",
+            "es-ES": "escuchar"
+          },
+          "score": 60
+        },
+        {
+          "word": "WATCH",
+          "translations": {
+            "pt-BR": [
+              "assistir"
+            ],
+            "es-ES": [
+              "mirar"
+            ]
+          },
+          "description": {
+            "pt-BR": "assistir",
+            "en-US": "to watch",
+            "es-ES": "mirar"
+          },
+          "score": 50
+        },
+        {
+          "word": "WORK",
+          "translations": {
+            "pt-BR": [
+              "trabalhar"
+            ],
+            "es-ES": [
+              "trabajar"
+            ]
+          },
+          "description": {
+            "pt-BR": "trabalhar",
+            "en-US": "work",
+            "es-ES": "trabajar"
+          },
+          "score": 40
+        },
+        {
+          "word": "STUDY",
+          "translations": {
+            "pt-BR": [
+              "estudar"
+            ],
+            "es-ES": [
+              "estudiar"
+            ]
+          },
+          "description": {
+            "pt-BR": "estudar",
+            "en-US": "study",
+            "es-ES": "estudiar"
+          },
+          "score": 50
+        },
+        {
+          "word": "TEACH",
+          "translations": {
+            "pt-BR": [
+              "ensinar"
+            ],
+            "es-ES": [
+              "enseñar"
+            ]
+          },
+          "description": {
+            "pt-BR": "ensinar",
+            "en-US": "teach",
+            "es-ES": "enseñar"
+          },
+          "score": 50
+        }
+      ]
     },
-    "house": {
-      "translations": ["casa", "residência"],
-      "description": "Uma construção utilizada como moradia.",
-      "score": 50
+    "food": {
+      "words": [
+        {
+          "word": "WATER",
+          "translations": {
+            "pt-BR": [
+              "água"
+            ],
+            "es-ES": [
+              "agua"
+            ]
+          },
+          "description": {
+            "pt-BR": "Um líquido transparente essencial para a vida.",
+            "en-US": "water",
+            "es-ES": "agua"
+          },
+          "score": 50
+        },
+        {
+          "word": "FOOD",
+          "translations": {
+            "pt-BR": [
+              "comida"
+            ],
+            "es-ES": [
+              "comida"
+            ]
+          },
+          "description": {
+            "pt-BR": "comida",
+            "en-US": "food",
+            "es-ES": "comida"
+          },
+          "score": 40
+        },
+        {
+          "word": "APPLE",
+          "translations": {
+            "pt-BR": [
+              "maçã"
+            ],
+            "es-ES": [
+              "manzana"
+            ]
+          },
+          "description": {
+            "pt-BR": "Uma fruta arredondada que cresce na macieira.",
+            "en-US": "apple",
+            "es-ES": "manzana"
+          },
+          "score": 50
+        },
+        {
+          "word": "BREAD",
+          "translations": {
+            "pt-BR": [
+              "pão"
+            ],
+            "es-ES": [
+              "pan"
+            ]
+          },
+          "description": {
+            "pt-BR": "pão",
+            "en-US": "bread",
+            "es-ES": "pan"
+          },
+          "score": 50
+        },
+        {
+          "word": "ORANGE",
+          "translations": {
+            "pt-BR": [
+              "laranja"
+            ],
+            "es-ES": [
+              "naranja"
+            ]
+          },
+          "description": {
+            "pt-BR": "laranja (fruta)",
+            "en-US": "orange (fruit)",
+            "es-ES": "naranja (fruta)"
+          },
+          "score": 60
+        }
+      ]
     },
-    "water": {
-      "translations": ["água"],
-      "description": "Um líquido transparente essencial para a vida.",
-      "score": 50
+    "places": {
+      "words": [
+        {
+          "word": "HOUSE",
+          "translations": {
+            "pt-BR": [
+              "casa",
+              "residência"
+            ],
+            "es-ES": [
+              "casa"
+            ]
+          },
+          "description": {
+            "pt-BR": "Uma construção utilizada como moradia.",
+            "en-US": "house",
+            "es-ES": "casa"
+          },
+          "score": 50
+        },
+        {
+          "word": "SCHOOL",
+          "translations": {
+            "pt-BR": [
+              "escola"
+            ],
+            "es-ES": [
+              "escuela"
+            ]
+          },
+          "description": {
+            "pt-BR": "escola",
+            "en-US": "school",
+            "es-ES": "escuela"
+          },
+          "score": 60
+        },
+        {
+          "word": "GARDEN",
+          "translations": {
+            "pt-BR": [
+              "jardim"
+            ],
+            "es-ES": [
+              "jardín"
+            ]
+          },
+          "description": {
+            "pt-BR": "jardim",
+            "en-US": "garden",
+            "es-ES": "jardín"
+          },
+          "score": 60
+        },
+        {
+          "word": "STREET",
+          "translations": {
+            "pt-BR": [
+              "rua"
+            ],
+            "es-ES": [
+              "calle"
+            ]
+          },
+          "description": {
+            "pt-BR": "rua",
+            "en-US": "street",
+            "es-ES": "calle"
+          },
+          "score": 60
+        },
+        {
+          "word": "CITY",
+          "translations": {
+            "pt-BR": [
+              "cidade"
+            ],
+            "es-ES": [
+              "ciudad"
+            ]
+          },
+          "description": {
+            "pt-BR": "cidade",
+            "en-US": "city",
+            "es-ES": "ciudad"
+          },
+          "score": 40
+        },
+        {
+          "word": "WORLD",
+          "translations": {
+            "pt-BR": [
+              "mundo"
+            ],
+            "es-ES": [
+              "mundo"
+            ]
+          },
+          "description": {
+            "pt-BR": "mundo",
+            "en-US": "world",
+            "es-ES": "mundo"
+          },
+          "score": 50
+        },
+        {
+          "word": "BEACH",
+          "translations": {
+            "pt-BR": [
+              "praia"
+            ],
+            "es-ES": [
+              "playa"
+            ]
+          },
+          "description": {
+            "pt-BR": "praia",
+            "en-US": "beach",
+            "es-ES": "playa"
+          },
+          "score": 50
+        }
+      ]
+    },
+    "adjectives": {
+      "words": [
+        {
+          "word": "ENGLISH",
+          "translations": {
+            "pt-BR": [
+              "inglês"
+            ],
+            "es-ES": [
+              "inglés"
+            ]
+          },
+          "description": {
+            "pt-BR": "inglês",
+            "en-US": "English",
+            "es-ES": "inglés"
+          },
+          "score": 70
+        },
+        {
+          "word": "HAPPY",
+          "translations": {
+            "pt-BR": [
+              "feliz"
+            ],
+            "es-ES": [
+              "feliz"
+            ]
+          },
+          "description": {
+            "pt-BR": "feliz",
+            "en-US": "happy",
+            "es-ES": "feliz"
+          },
+          "score": 50
+        },
+        {
+          "word": "LIGHT",
+          "translations": {
+            "pt-BR": [
+              "leve",
+              "claro"
+            ],
+            "es-ES": [
+              "ligero",
+              "claro"
+            ]
+          },
+          "description": {
+            "pt-BR": "leve ou claro",
+            "en-US": "not heavy or pale",
+            "es-ES": "ligero o claro"
+          },
+          "score": 50
+        },
+        {
+          "word": "PAST",
+          "translations": {
+            "pt-BR": [
+              "passado"
+            ],
+            "es-ES": [
+              "pasado"
+            ]
+          },
+          "description": {
+            "pt-BR": "passado",
+            "en-US": "past",
+            "es-ES": "pasado"
+          },
+          "score": 40
+        },
+        {
+          "word": "FUTURE",
+          "translations": {
+            "pt-BR": [
+              "futuro"
+            ],
+            "es-ES": [
+              "futuro"
+            ]
+          },
+          "description": {
+            "pt-BR": "futuro",
+            "en-US": "future",
+            "es-ES": "futuro"
+          },
+          "score": 60
+        }
+      ]
+    },
+    "colors": {
+      "words": [
+        {
+          "word": "GREEN",
+          "translations": {
+            "pt-BR": [
+              "verde"
+            ],
+            "es-ES": [
+              "verde"
+            ]
+          },
+          "description": {
+            "pt-BR": "verde",
+            "en-US": "green",
+            "es-ES": "verde"
+          },
+          "score": 50
+        },
+        {
+          "word": "BLUE",
+          "translations": {
+            "pt-BR": [
+              "azul"
+            ],
+            "es-ES": [
+              "azul"
+            ]
+          },
+          "description": {
+            "pt-BR": "azul",
+            "en-US": "blue",
+            "es-ES": "azul"
+          },
+          "score": 40
+        },
+        {
+          "word": "RED",
+          "translations": {
+            "pt-BR": [
+              "vermelho"
+            ],
+            "es-ES": [
+              "rojo"
+            ]
+          },
+          "description": {
+            "pt-BR": "vermelho",
+            "en-US": "red",
+            "es-ES": "rojo"
+          },
+          "score": 30
+        },
+        {
+          "word": "BLACK",
+          "translations": {
+            "pt-BR": [
+              "preto"
+            ],
+            "es-ES": [
+              "negro"
+            ]
+          },
+          "description": {
+            "pt-BR": "preto",
+            "en-US": "black",
+            "es-ES": "negro"
+          },
+          "score": 50
+        },
+        {
+          "word": "WHITE",
+          "translations": {
+            "pt-BR": [
+              "branco"
+            ],
+            "es-ES": [
+              "blanco"
+            ]
+          },
+          "description": {
+            "pt-BR": "branco",
+            "en-US": "white",
+            "es-ES": "blanco"
+          },
+          "score": 50
+        },
+        {
+          "word": "COLOR",
+          "translations": {
+            "pt-BR": [
+              "cor"
+            ],
+            "es-ES": [
+              "color"
+            ]
+          },
+          "description": {
+            "pt-BR": "cor",
+            "en-US": "color",
+            "es-ES": "color"
+          },
+          "score": 50
+        },
+        {
+          "word": "ORANGE",
+          "translations": {
+            "pt-BR": [
+              "laranja"
+            ],
+            "es-ES": [
+              "naranja"
+            ]
+          },
+          "description": {
+            "pt-BR": "laranja (cor)",
+            "en-US": "orange (color)",
+            "es-ES": "naranja (color)"
+          },
+          "score": 60
+        },
+        {
+          "word": "PURPLE",
+          "translations": {
+            "pt-BR": [
+              "roxo"
+            ],
+            "es-ES": [
+              "morado"
+            ]
+          },
+          "description": {
+            "pt-BR": "roxo",
+            "en-US": "purple",
+            "es-ES": "morado"
+          },
+          "score": 60
+        },
+        {
+          "word": "YELLOW",
+          "translations": {
+            "pt-BR": [
+              "amarelo"
+            ],
+            "es-ES": [
+              "amarillo"
+            ]
+          },
+          "description": {
+            "pt-BR": "amarelo",
+            "en-US": "yellow",
+            "es-ES": "amarillo"
+          },
+          "score": 60
+        },
+        {
+          "word": "PINK",
+          "translations": {
+            "pt-BR": [
+              "rosa"
+            ],
+            "es-ES": [
+              "rosa"
+            ]
+          },
+          "description": {
+            "pt-BR": "rosa",
+            "en-US": "pink",
+            "es-ES": "rosa"
+          },
+          "score": 40
+        }
+      ]
+    },
+    "nature": {
+      "words": [
+        {
+          "word": "RAIN",
+          "translations": {
+            "pt-BR": [
+              "chuva"
+            ],
+            "es-ES": [
+              "lluvia"
+            ]
+          },
+          "description": {
+            "pt-BR": "chuva",
+            "en-US": "rain",
+            "es-ES": "lluvia"
+          },
+          "score": 40
+        },
+        {
+          "word": "LIGHT",
+          "translations": {
+            "pt-BR": [
+              "luz"
+            ],
+            "es-ES": [
+              "luz"
+            ]
+          },
+          "description": {
+            "pt-BR": "luz",
+            "en-US": "light",
+            "es-ES": "luz"
+          },
+          "score": 50
+        },
+        {
+          "word": "NIGHT",
+          "translations": {
+            "pt-BR": [
+              "noite"
+            ],
+            "es-ES": [
+              "noche"
+            ]
+          },
+          "description": {
+            "pt-BR": "noite",
+            "en-US": "night",
+            "es-ES": "noche"
+          },
+          "score": 50
+        },
+        {
+          "word": "EARTH",
+          "translations": {
+            "pt-BR": [
+              "Terra"
+            ],
+            "es-ES": [
+              "Tierra"
+            ]
+          },
+          "description": {
+            "pt-BR": "Terra",
+            "en-US": "Earth",
+            "es-ES": "Tierra"
+          },
+          "score": 50
+        },
+        {
+          "word": "SUN",
+          "translations": {
+            "pt-BR": [
+              "sol"
+            ],
+            "es-ES": [
+              "sol"
+            ]
+          },
+          "description": {
+            "pt-BR": "sol",
+            "en-US": "sun",
+            "es-ES": "sol"
+          },
+          "score": 30
+        },
+        {
+          "word": "MOON",
+          "translations": {
+            "pt-BR": [
+              "lua"
+            ],
+            "es-ES": [
+              "luna"
+            ]
+          },
+          "description": {
+            "pt-BR": "lua",
+            "en-US": "moon",
+            "es-ES": "luna"
+          },
+          "score": 40
+        },
+        {
+          "word": "STAR",
+          "translations": {
+            "pt-BR": [
+              "estrela"
+            ],
+            "es-ES": [
+              "estrella"
+            ]
+          },
+          "description": {
+            "pt-BR": "estrela",
+            "en-US": "star",
+            "es-ES": "estrella"
+          },
+          "score": 40
+        },
+        {
+          "word": "CLOUD",
+          "translations": {
+            "pt-BR": [
+              "nuvem"
+            ],
+            "es-ES": [
+              "nube"
+            ]
+          },
+          "description": {
+            "pt-BR": "nuvem",
+            "en-US": "cloud",
+            "es-ES": "nube"
+          },
+          "score": 50
+        },
+        {
+          "word": "RIVER",
+          "translations": {
+            "pt-BR": [
+              "rio"
+            ],
+            "es-ES": [
+              "río"
+            ]
+          },
+          "description": {
+            "pt-BR": "rio",
+            "en-US": "river",
+            "es-ES": "río"
+          },
+          "score": 50
+        },
+        {
+          "word": "OCEAN",
+          "translations": {
+            "pt-BR": [
+              "oceano"
+            ],
+            "es-ES": [
+              "océano"
+            ]
+          },
+          "description": {
+            "pt-BR": "oceano",
+            "en-US": "ocean",
+            "es-ES": "océano"
+          },
+          "score": 50
+        },
+        {
+          "word": "BEACH",
+          "translations": {
+            "pt-BR": [
+              "praia"
+            ],
+            "es-ES": [
+              "playa"
+            ]
+          },
+          "description": {
+            "pt-BR": "praia",
+            "en-US": "beach",
+            "es-ES": "playa"
+          },
+          "score": 50
+        },
+        {
+          "word": "MOUNTAIN",
+          "translations": {
+            "pt-BR": [
+              "montanha"
+            ],
+            "es-ES": [
+              "montaña"
+            ]
+          },
+          "description": {
+            "pt-BR": "montanha",
+            "en-US": "mountain",
+            "es-ES": "montaña"
+          },
+          "score": 80
+        },
+        {
+          "word": "WATER",
+          "translations": {
+            "pt-BR": [
+              "água"
+            ],
+            "es-ES": [
+              "agua"
+            ]
+          },
+          "description": {
+            "pt-BR": "Um líquido transparente essencial para a vida.",
+            "en-US": "water",
+            "es-ES": "agua"
+          },
+          "score": 50
+        },
+        {
+          "word": "MORNING",
+          "translations": {
+            "pt-BR": [
+              "manhã"
+            ],
+            "es-ES": [
+              "mañana"
+            ]
+          },
+          "description": {
+            "pt-BR": "manhã",
+            "en-US": "morning",
+            "es-ES": "mañana"
+          },
+          "score": 70
+        },
+        {
+          "word": "EVENING",
+          "translations": {
+            "pt-BR": [
+              "noite"
+            ],
+            "es-ES": [
+              "tarde"
+            ]
+          },
+          "description": {
+            "pt-BR": "noite",
+            "en-US": "evening",
+            "es-ES": "tarde"
+          },
+          "score": 70
+        },
+        {
+          "word": "TODAY",
+          "translations": {
+            "pt-BR": [
+              "hoje"
+            ],
+            "es-ES": [
+              "hoy"
+            ]
+          },
+          "description": {
+            "pt-BR": "hoje",
+            "en-US": "today",
+            "es-ES": "hoy"
+          },
+          "score": 50
+        },
+        {
+          "word": "TOMORROW",
+          "translations": {
+            "pt-BR": [
+              "amanhã"
+            ],
+            "es-ES": [
+              "mañana"
+            ]
+          },
+          "description": {
+            "pt-BR": "amanhã",
+            "en-US": "tomorrow",
+            "es-ES": "mañana"
+          },
+          "score": 80
+        },
+        {
+          "word": "TIME",
+          "translations": {
+            "pt-BR": [
+              "tempo"
+            ],
+            "es-ES": [
+              "tiempo"
+            ]
+          },
+          "description": {
+            "pt-BR": "tempo",
+            "en-US": "time",
+            "es-ES": "tiempo"
+          },
+          "score": 40
+        },
+        {
+          "word": "PAST",
+          "translations": {
+            "pt-BR": [
+              "passado"
+            ],
+            "es-ES": [
+              "pasado"
+            ]
+          },
+          "description": {
+            "pt-BR": "passado",
+            "en-US": "past",
+            "es-ES": "pasado"
+          },
+          "score": 40
+        },
+        {
+          "word": "FUTURE",
+          "translations": {
+            "pt-BR": [
+              "futuro"
+            ],
+            "es-ES": [
+              "futuro"
+            ]
+          },
+          "description": {
+            "pt-BR": "futuro",
+            "en-US": "future",
+            "es-ES": "futuro"
+          },
+          "score": 60
+        }
+      ]
+    },
+    "professions": {
+      "words": [
+        {
+          "word": "TEACHER",
+          "translations": {
+            "pt-BR": [
+              "professor"
+            ],
+            "es-ES": [
+              "profesor"
+            ]
+          },
+          "description": {
+            "pt-BR": "professor",
+            "en-US": "teacher",
+            "es-ES": "profesor"
+          },
+          "score": 70
+        },
+        {
+          "word": "STUDENT",
+          "translations": {
+            "pt-BR": [
+              "estudante"
+            ],
+            "es-ES": [
+              "estudiante"
+            ]
+          },
+          "description": {
+            "pt-BR": "estudante",
+            "en-US": "student",
+            "es-ES": "estudiante"
+          },
+          "score": 70
+        },
+        {
+          "word": "PLAYER",
+          "translations": {
+            "pt-BR": [
+              "jogador"
+            ],
+            "es-ES": [
+              "jugador"
+            ]
+          },
+          "description": {
+            "pt-BR": "jogador",
+            "en-US": "player",
+            "es-ES": "jugador"
+          },
+          "score": 60
+        }
+      ]
     }
   }
 }
-

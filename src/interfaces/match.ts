@@ -51,8 +51,8 @@ export interface MatchWordSnapshot {
 }
 
 export interface MatchWordResultSnapshot extends MatchWordSnapshot {
-  translations: string[];
-  description: string;
+  translations: Record<string, string[]>;
+  description: Record<string, string[]>;
 }
 
 export interface PendingWordSnapshot {
@@ -93,8 +93,8 @@ export interface FoundWordResult {
   word: string;
   direction: 'horizontal' | 'vertical';
   pointsEarned: number;
-  translations: string[];
-  description: string;
+  translations: Record<string, string[]>;
+  description: Record<string, string[]>;
   cells: BoardCell[];
 }
 
