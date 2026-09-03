@@ -22,6 +22,7 @@ export interface WordDefinition {
 export interface EnglishContent {
   letters: readonly LetterDefinition[];
   words: ReadonlyMap<string, WordDefinition>;
+  wordsByTheme: ReadonlyMap<string, ReadonlyMap<string, WordDefinition>>;
 }
 
 export interface BatchRules {

@@ -10,6 +10,7 @@
     "start": "node dist/index.js",
     "test": "npm run build && node --test tests/*.test.js",
     "migrate": "ts-node src/scripts/migrate.ts",
+    "migrations": "npm run migrate",
     "migrate:production": "node dist/scripts/migrate.js"
   },
   "dependencies": {

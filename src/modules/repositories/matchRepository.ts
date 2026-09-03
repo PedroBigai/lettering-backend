@@ -18,6 +18,7 @@ type MatchRow = RowDataPacket & {
   id: string;
   language: string;
   mode: string;
+  theme: string | null;
   status: string;
   board_rows: number;
   board_columns: number;
@@ -63,6 +64,7 @@ type PendingWordRow = RowDataPacket & {
 
 type LockedPlayerRow = RowDataPacket & {
   player_id: string;
+  theme: string | null;
   match_status: string;
   player_status: string;
   board_rows: number;
@@ -78,6 +80,7 @@ type LockedPlayerRow = RowDataPacket & {
 type HistoryRow = RowDataPacket & {
   id: string;
   mode: string;
+  theme: string | null;
   language: string;
   match_status: string;
   player_status: string;
@@ -128,19 +131,20 @@ export class MysqlMatchRepository implements MatchRepository {
       if (activeRows.length > 0) {
         throw new ApiError(409, 'ACTIVE_MATCH_EXISTS', 'User already has an active match');
       }
+      const initialLives = input.mode === 'hardcore' ? 1 : 3;
       await connection.execute(
         `INSERT INTO matches
-          (id, language, mode, status, board_rows, board_columns,
+          (id, language, mode, theme, status, board_rows, board_columns,
            min_word_length, max_players, rules_version, started_at)
-         VALUES (?, ?, ?, 'in_progress', 10, 9, 3, 1, '1', CURRENT_TIMESTAMP(3))`,
-        [input.matchId, input.language, input.mode],
+         VALUES (?, ?, ?, ?, 'in_progress', 10, 9, 3, 1, '1', CURRENT_TIMESTAMP(3))`,
+        [input.matchId, input.language, input.mode, input.theme ?? null],
       );
       await connection.execute(
         `INSERT INTO match_players
-          (id, match_id, user_id, status, score, level_reached,
+          (id, match_id, user_id, status, score, level_reached, lives_remaining,
            board_version, game_time_ms, joined_at)
-         VALUES (?, ?, ?, 'playing', 0, 1, 0, 0, CURRENT_TIMESTAMP(3))`,
-        [input.playerId, input.matchId, input.userId],
+         VALUES (?, ?, ?, 'playing', 0, 1, ?, 0, 0, CURRENT_TIMESTAMP(3))`,
+        [input.playerId, input.matchId, input.userId, initialLives],
       );
 
       for (const piece of input.pieces) {
@@ -167,7 +171,7 @@ export class MysqlMatchRepository implements MatchRepository {
     userId: string,
   ): Promise<MatchSnapshotRecord | undefined> {
     const [matchRows] = await this.database.execute<MatchRow[]>(
-      `SELECT m.id, m.language, m.mode, m.status, m.board_rows,
+      `SELECT m.id, m.language, m.mode, m.theme, m.status, m.board_rows,
               m.board_columns, m.min_word_length, m.started_at,
               mp.id AS player_id, mp.status AS player_status, mp.score,
               mp.level_reached, mp.lives_remaining, mp.board_version,
@@ -219,6 +223,7 @@ export class MysqlMatchRepository implements MatchRepository {
       id: match.id,
       language: match.language,
       mode: match.mode,
+      theme: match.theme,
       status: match.status,
       boardRows: match.board_rows,
       boardColumns: match.board_columns,
@@ -269,7 +274,7 @@ export class MysqlMatchRepository implements MatchRepository {
     try {
       await connection.beginTransaction();
       const [playerRows] = await connection.execute<LockedPlayerRow[]>(
-        `SELECT mp.id AS player_id, m.status AS match_status,
+        `SELECT mp.id AS player_id, m.theme, m.status AS match_status,
                 mp.status AS player_status, m.board_rows, m.board_columns,
                 m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
                 mp.joined_at, mp.game_time_ms
@@ -367,12 +372,15 @@ export class MysqlMatchRepository implements MatchRepository {
 
       const boardAfterPlacement = [...boardCells, placedPiece];
       const lifeLost = landingRow === 0;
+      const candidateWords = input.getWords
+        ? input.getWords(player.theme)
+        : (input.words ?? new Map());
       const found = lifeLost
         ? undefined
         : findFirstWord(
             boardAfterPlacement,
             placedPiece,
-            input.words,
+            candidateWords,
             player.min_word_length,
           );
       let removedCells: BoardCell[] = [];
@@ -772,7 +780,7 @@ export class MysqlMatchRepository implements MatchRepository {
   ): Promise<MatchHistoryPage> {
     const [rows, countRows] = await Promise.all([
       this.database.execute<HistoryRow[]>(
-        `SELECT m.id, m.mode, m.language, m.status AS match_status,
+        `SELECT m.id, m.mode, m.theme, m.language, m.status AS match_status,
                 mp.status AS player_status, mp.score, mp.lives_remaining,
                 CASE
                   WHEN mp.status = 'playing' THEN GREATEST(0,
@@ -785,7 +793,7 @@ export class MysqlMatchRepository implements MatchRepository {
          INNER JOIN matches m ON m.id = mp.match_id
          LEFT JOIN game_words gw ON gw.match_player_id = mp.id
          WHERE mp.user_id = ?
-         GROUP BY m.id, m.mode, m.language, m.status, mp.status, mp.score,
+         GROUP BY m.id, m.mode, m.theme, m.language, m.status, mp.status, mp.score,
                   mp.lives_remaining, mp.game_time_ms, mp.joined_at,
                   mp.total_paused_ms, m.started_at, m.finished_at
          ORDER BY m.created_at DESC
@@ -802,6 +810,7 @@ export class MysqlMatchRepository implements MatchRepository {
       items: rows[0].map((row) => ({
         id: row.id,
         mode: row.mode,
+        theme: row.theme,
         language: row.language,
         matchStatus: row.match_status,
         playerStatus: row.player_status,

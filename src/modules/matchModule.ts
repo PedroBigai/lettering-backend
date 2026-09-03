@@ -9,6 +9,7 @@ import type {
   PlacePieceInput,
 } from '../interfaces/match';
 import { generateLetterOptions } from './game/letterGenerator';
+import { getWordsForMatch } from './game/content';
 import { ApiError } from '../server/errors';
 
 export class MatchModule {
@@ -27,6 +28,7 @@ export class MatchModule {
       playerId,
       userId,
       mode: input.mode,
+      theme: input.theme ?? null,
       language: input.language,
       pieces: letters.map((letter, index) => ({
         id: randomUUID(),
@@ -44,8 +46,9 @@ export class MatchModule {
       throw new ApiError(404, 'MATCH_NOT_FOUND', 'Match not found');
     }
 
+    const matchWords = getWordsForMatch(this.content, snapshot.theme);
     const pendingDefinition = snapshot.pendingWord
-      ? this.content.words.get(snapshot.pendingWord.formedWord)
+      ? matchWords.get(snapshot.pendingWord.formedWord) ?? this.content.words.get(snapshot.pendingWord.formedWord)
       : undefined;
 
     return {
@@ -53,6 +56,7 @@ export class MatchModule {
         id: snapshot.id,
         language: snapshot.language,
         mode: snapshot.mode,
+        theme: snapshot.theme,
         status: snapshot.status,
         startedAt: snapshot.startedAt,
         board: {
@@ -91,7 +95,8 @@ export class MatchModule {
             sequenceNumber: piece.sequenceNumber,
           })),
         foundWords: snapshot.words.map((word) => {
-          const definition = this.content.words.get(word.formedWord);
+          const definition =
+            matchWords.get(word.formedWord) ?? this.content.words.get(word.formedWord);
           return {
             ...word,
             translations: definition?.translations ?? {},
@@ -125,6 +130,7 @@ export class MatchModule {
       column: input.column,
       boardVersion: input.boardVersion,
       words: this.content.words,
+      getWords: (theme) => getWordsForMatch(this.content, theme),
       nextPieces: nextLetters.map((letter) => ({ id: randomUUID(), letter })),
     });
     const snapshot = await this.getMatchState(userId, matchId);
@@ -144,7 +150,9 @@ export class MatchModule {
       boardVersion: input.boardVersion,
     });
     const snapshot = await this.getMatchState(userId, matchId);
-    const definition = this.content.words.get(result.confirmedWord.word);
+    const matchWords = getWordsForMatch(this.content, snapshot.match.theme);
+    const definition =
+      matchWords.get(result.confirmedWord.word) ?? this.content.words.get(result.confirmedWord.word);
 
     return {
       accepted: true,

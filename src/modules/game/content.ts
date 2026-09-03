@@ -32,12 +32,24 @@ export async function loadEnglishContent(): Promise<EnglishContent> {
   const lettersFile = lettersFileSchema.parse(lettersJson);
   const wordsFile = wordsFileSchema.parse(wordsJson);
   const words = new Map<string, WordDefinition>();
+  const wordsByTheme = new Map<string, Map<string, WordDefinition>>();
 
-  Object.values(wordsFile.general).forEach((theme) => {
+  Object.entries(wordsFile.general).forEach(([themeName, theme]) => {
+    const themeWords = new Map<string, WordDefinition>();
+
     theme.words.forEach((entry) => {
       const key = normalizeEnglishWord(entry.word);
-      const current = words.get(key);
+      const definition: WordDefinition = {
+        translations: copyLocalizedLists(entry.translations),
+        description: Object.fromEntries(
+          Object.entries(entry.description).map(([language, value]) => [language, [value]]),
+        ),
+        score: entry.score,
+      };
 
+      themeWords.set(key, definition);
+
+      const current = words.get(key);
       if (!current) {
         words.set(key, {
           translations: copyLocalizedLists(entry.translations),
@@ -58,11 +70,14 @@ export async function loadEnglishContent(): Promise<EnglishContent> {
       );
       current.score = Math.max(current.score, entry.score);
     });
+
+    wordsByTheme.set(themeName, themeWords);
   });
 
   cachedContent = Object.freeze({
     letters: Object.freeze(lettersFile.letters),
     words,
+    wordsByTheme,
   });
 
   return cachedContent;
@@ -97,3 +112,12 @@ export function findEnglishWord(
 ): WordDefinition | undefined {
   return content.words.get(normalizeEnglishWord(value));
 }
+
+export function getWordsForMatch(
+  content: EnglishContent,
+  theme?: string | null,
+): ReadonlyMap<string, WordDefinition> {
+  if (!theme) return content.words;
+  return content.wordsByTheme.get(theme) ?? content.words;
+}
+

@@ -1,5 +1,19 @@
 import { z } from 'zod';
 
+export const VALID_THEMES = [
+  'animals',
+  'objects',
+  'verbs',
+  'food',
+  'places',
+  'adjectives',
+  'colors',
+  'nature',
+  'professions',
+] as const;
+
+export type ValidTheme = (typeof VALID_THEMES)[number];
+
 export const letterDefinitionSchema = z.object({
   value: z.string().regex(/^[A-Z]$/, 'Letter must be one uppercase A-Z character'),
   weight: z.number().int().positive(),

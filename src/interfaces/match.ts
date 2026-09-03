@@ -16,7 +16,8 @@ export interface NewMatch {
   matchId: string;
   playerId: string;
   userId: string;
-  mode: 'classic';
+  mode: 'classic' | 'learning' | 'hardcore' | 'versus';
+  theme?: string | null;
   language: 'en-US';
   pieces: readonly { id: string; letter: string; sequenceNumber: number }[];
 }
@@ -68,6 +69,7 @@ export interface MatchSnapshotRecord {
   id: string;
   language: string;
   mode: string;
+  theme: string | null;
   status: string;
   boardRows: number;
   boardColumns: number;
@@ -85,7 +87,8 @@ export interface PlacePieceRecord {
   pieceId: string;
   column: number;
   boardVersion: number;
-  words: ReadonlyMap<string, WordDefinition>;
+  words?: ReadonlyMap<string, WordDefinition>;
+  getWords?: (theme: string | null) => ReadonlyMap<string, WordDefinition>;
   nextPieces: readonly { id: string; letter: string }[];
 }
 
@@ -143,6 +146,7 @@ export interface MatchRepository {
 export interface MatchHistoryItem {
   id: string;
   mode: string;
+  theme: string | null;
   language: string;
   matchStatus: string;
   playerStatus: string;
@@ -166,6 +170,7 @@ export interface MatchSnapshot {
     id: string;
     language: string;
     mode: string;
+    theme: string | null;
     status: string;
     startedAt: Date | null;
     board: {
