@@ -1,8 +1,9 @@
 import type { z } from 'zod';
-import type { loginSchema, registerSchema } from '../schemas/authSchemas';
+import type { availabilitySchema, loginSchema, registerSchema } from '../schemas/authSchemas';
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type AvailabilityInput = z.infer<typeof availabilitySchema>;
 
 export interface PublicUser {
   id: string;
@@ -14,6 +15,10 @@ export interface PublicUser {
 export interface AuthenticationResult {
   user: PublicUser;
   token: string;
+}
+
+export interface AvailabilityResult {
+  available: boolean;
 }
 
 export interface AuthModuleOptions {

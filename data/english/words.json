@@ -15435,6 +15435,46 @@
           "score": 50
         },
         {
+          "word": "CERULEAN",
+          "translations": { "pt-BR": ["cerúleo"], "es-ES": ["cerúleo"] },
+          "description": {
+            "pt-BR": "Um tom intenso de azul semelhante ao céu limpo.",
+            "en-US": "A deep sky-blue color.",
+            "es-ES": "Un tono azul intenso parecido al cielo despejado."
+          },
+          "score": 80
+        },
+        {
+          "word": "MAUVE",
+          "translations": { "pt-BR": ["malva"], "es-ES": ["malva"] },
+          "description": {
+            "pt-BR": "Um tom suave entre o violeta e o rosa.",
+            "en-US": "A soft color between violet and pink.",
+            "es-ES": "Un tono suave entre violeta y rosa."
+          },
+          "score": 50
+        },
+        {
+          "word": "TAUPE",
+          "translations": { "pt-BR": ["taupe"], "es-ES": ["topo"] },
+          "description": {
+            "pt-BR": "Um tom neutro entre marrom e cinza.",
+            "en-US": "A neutral color between brown and gray.",
+            "es-ES": "Un tono neutro entre marrón y gris."
+          },
+          "score": 50
+        },
+        {
+          "word": "TURQUOISE",
+          "translations": { "pt-BR": ["turquesa"], "es-ES": ["turquesa"] },
+          "description": {
+            "pt-BR": "Um tom vivo entre azul e verde.",
+            "en-US": "A vivid color between blue and green.",
+            "es-ES": "Un tono vivo entre azul y verde."
+          },
+          "score": 90
+        },
+        {
           "word": "YELLOW",
           "translations": {
             "pt-BR": [

@@ -1,59 +1,64 @@
-import type {
-  BoardCell,
-  FoundWord,
-  WordDefinition,
-  WordDirection,
-} from '../../interfaces/game';
+import type { BoardCell, FoundWord, WordDefinition, WordDirection } from '../../interfaces/game';
 
-function findInDirection(
-  cells: readonly BoardCell[],
-  placedCell: BoardCell,
+type WordCandidate = FoundWord & { multiplier: number };
+
+function collectLineWords(
+  line: readonly BoardCell[],
   words: ReadonlyMap<string, WordDefinition>,
   minLength: number,
   direction: WordDirection,
-): FoundWord | undefined {
-  const line = cells
-    .filter((cell) =>
-      direction === 'horizontal'
-        ? cell.row === placedCell.row
-        : cell.column === placedCell.column,
-    )
-    .sort((first, second) =>
-      direction === 'horizontal'
-        ? first.column - second.column
-        : first.row - second.row,
-    );
+  candidates: WordCandidate[],
+): void {
   const coordinate = (cell: BoardCell) =>
     direction === 'horizontal' ? cell.column : cell.row;
+  const sortedLine = [...line].sort((first, second) => coordinate(first) - coordinate(second));
 
-  for (let length = minLength; length <= line.length; length += 1) {
-    for (let startIndex = 0; startIndex <= line.length - length; startIndex += 1) {
-      const candidate = line.slice(startIndex, startIndex + length);
-      if (!candidate.some((cell) => cell.pieceId === placedCell.pieceId)) continue;
+  for (const [word, definition] of words) {
+    if (word.length < minLength || word.length > sortedLine.length) continue;
 
-      const firstCoordinate = coordinate(candidate[0]);
-      const contiguous = candidate.every(
-        (cell, index) => coordinate(cell) === firstCoordinate + index,
-      );
-      if (!contiguous) continue;
+    for (let start = 0; start <= sortedLine.length - word.length; start += 1) {
+      const wordCells = sortedLine.slice(start, start + word.length);
+      const firstCoordinate = coordinate(wordCells[0]);
+      if (!wordCells.every((cell, index) => coordinate(cell) === firstCoordinate + index)) continue;
 
-      const word = candidate.map((cell) => cell.letter).join('').toLowerCase();
-      const definition = words.get(word);
-      if (definition) return { word, direction, definition, cells: candidate };
+      const text = wordCells.map((cell) => cell.letter).join('').toLowerCase();
+      if (text !== word) continue;
+
+      candidates.push({
+        word,
+        direction,
+        definition,
+        cells: wordCells,
+        multiplier: direction === 'horizontal' ? 10 : 50,
+      });
     }
   }
-
-  return undefined;
 }
 
 export function findFirstWord(
   cells: readonly BoardCell[],
-  placedCell: BoardCell,
+  _placedCell: BoardCell,
   words: ReadonlyMap<string, WordDefinition>,
   minLength = 3,
 ): FoundWord | undefined {
-  return (
-    findInDirection(cells, placedCell, words, minLength, 'horizontal') ??
-    findInDirection(cells, placedCell, words, minLength, 'vertical')
-  );
+  const candidates: WordCandidate[] = [];
+  const rows = [...new Set(cells.map((cell) => cell.row))].sort((a, b) => a - b);
+  const columns = [...new Set(cells.map((cell) => cell.column))].sort((a, b) => a - b);
+
+  rows.forEach((row) => collectLineWords(
+    cells.filter((cell) => cell.row === row), words, minLength, 'horizontal', candidates,
+  ));
+  columns.forEach((column) => collectLineWords(
+    cells.filter((cell) => cell.column === column), words, minLength, 'vertical', candidates,
+  ));
+
+  candidates.sort((first, second) => {
+    if (second.word.length !== first.word.length) return second.word.length - first.word.length;
+    return second.multiplier - first.multiplier;
+  });
+
+  const candidate = candidates[0];
+  if (!candidate) return undefined;
+  const { multiplier: _multiplier, ...foundWord } = candidate;
+  return foundWord;
 }

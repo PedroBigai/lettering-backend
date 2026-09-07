@@ -4,6 +4,7 @@ import type {
   confirmWordSchema,
   matchHistoryQuerySchema,
   placePieceSchema,
+  rankingQuerySchema,
 } from '../schemas/matchSchemas';
 import type { BoardCell, MovedCell, WordDefinition } from './game';
 
@@ -11,6 +12,7 @@ export type CreateMatchInput = z.infer<typeof createMatchSchema>;
 export type PlacePieceInput = z.infer<typeof placePieceSchema>;
 export type ConfirmWordInput = z.infer<typeof confirmWordSchema>;
 export type MatchHistoryQuery = z.infer<typeof matchHistoryQuerySchema>;
+export type RankingQuery = z.infer<typeof rankingQuerySchema>;
 
 export interface NewMatch {
   matchId: string;
@@ -18,6 +20,7 @@ export interface NewMatch {
   userId: string;
   mode: 'classic' | 'learning' | 'hardcore' | 'versus';
   theme?: string | null;
+  wordTarget?: number | null;
   language: 'en-US';
   pieces: readonly { id: string; letter: string; sequenceNumber: number }[];
 }
@@ -70,6 +73,7 @@ export interface MatchSnapshotRecord {
   language: string;
   mode: string;
   theme: string | null;
+  wordTarget: number | null;
   status: string;
   boardRows: number;
   boardColumns: number;
@@ -89,7 +93,11 @@ export interface PlacePieceRecord {
   boardVersion: number;
   words?: ReadonlyMap<string, WordDefinition>;
   getWords?: (theme: string | null) => ReadonlyMap<string, WordDefinition>;
-  nextPieces: readonly { id: string; letter: string }[];
+  createNextPieces: (
+    mode: string,
+    theme: string | null,
+    rotationIndex: number,
+  ) => readonly { id: string; letter: string }[];
 }
 
 export interface FoundWordResult {
@@ -117,6 +125,7 @@ export interface ConfirmWordRecord {
   matchId: string;
   userId: string;
   boardVersion: number;
+  getWords: (theme: string | null) => ReadonlyMap<string, WordDefinition>;
 }
 
 export interface ConfirmWordResult {
@@ -130,6 +139,7 @@ export interface ConfirmWordResult {
   removedCells: BoardCell[];
   movedCells: MovedCell[];
   currentScore: number;
+  completed: boolean;
 }
 
 export interface MatchRepository {
@@ -140,6 +150,7 @@ export interface MatchRepository {
   leaveMatch(matchId: string, userId: string): Promise<void>;
   setPaused(matchId: string, userId: string, paused: boolean): Promise<void>;
   listByUser(userId: string, limit: number, offset: number): Promise<MatchHistoryPage>;
+  getRanking(userId: string, query: RankingQuery): Promise<RankingResult>;
   expireInactive(timeoutSeconds: number): Promise<number>;
 }
 
@@ -165,12 +176,26 @@ export interface MatchHistoryPage {
   offset: number;
 }
 
+export interface RankingEntry {
+  position: number;
+  userId: string;
+  username: string;
+  score: number;
+  gameTimeMs: number;
+}
+
+export interface RankingResult {
+  entries: RankingEntry[];
+  currentUser: RankingEntry | null;
+}
+
 export interface MatchSnapshot {
   match: {
     id: string;
     language: string;
     mode: string;
     theme: string | null;
+    wordTarget: number | null;
     status: string;
     startedAt: Date | null;
     board: {
@@ -182,6 +207,7 @@ export interface MatchSnapshot {
     rules: {
       minWordLength: number;
       letterOptionsPerTurn: 4;
+      wordTarget: number | null;
     };
     player: MatchPlayerSnapshot;
     letterOptions: Array<{ pieceId: string; letter: string; sequenceNumber: number }>;

@@ -9,6 +9,8 @@ import type {
   NewMatch,
   PlacePieceRecord,
   PlacePieceResult,
+  RankingQuery,
+  RankingResult,
 } from '../../interfaces/match';
 import { applyGravity, findLandingRow } from '../game/boardEngine';
 import { findFirstWord } from '../game/wordDetector';
@@ -19,6 +21,7 @@ type MatchRow = RowDataPacket & {
   language: string;
   mode: string;
   theme: string | null;
+  target_word_count: number | null;
   status: string;
   board_rows: number;
   board_columns: number;
@@ -64,7 +67,9 @@ type PendingWordRow = RowDataPacket & {
 
 type LockedPlayerRow = RowDataPacket & {
   player_id: string;
+  mode: string;
   theme: string | null;
+  target_word_count: number | null;
   match_status: string;
   player_status: string;
   board_rows: number;
@@ -134,10 +139,10 @@ export class MysqlMatchRepository implements MatchRepository {
       const initialLives = input.mode === 'hardcore' ? 1 : 3;
       await connection.execute(
         `INSERT INTO matches
-          (id, language, mode, theme, status, board_rows, board_columns,
+          (id, language, mode, theme, target_word_count, status, board_rows, board_columns,
            min_word_length, max_players, rules_version, started_at)
-         VALUES (?, ?, ?, ?, 'in_progress', 10, 9, 3, 1, '1', CURRENT_TIMESTAMP(3))`,
-        [input.matchId, input.language, input.mode, input.theme ?? null],
+         VALUES (?, ?, ?, ?, ?, 'in_progress', 10, 9, 3, 1, '1', CURRENT_TIMESTAMP(3))`,
+        [input.matchId, input.language, input.mode, input.theme ?? null, input.wordTarget ?? null],
       );
       await connection.execute(
         `INSERT INTO match_players
@@ -171,7 +176,7 @@ export class MysqlMatchRepository implements MatchRepository {
     userId: string,
   ): Promise<MatchSnapshotRecord | undefined> {
     const [matchRows] = await this.database.execute<MatchRow[]>(
-      `SELECT m.id, m.language, m.mode, m.theme, m.status, m.board_rows,
+      `SELECT m.id, m.language, m.mode, m.theme, m.target_word_count, m.status, m.board_rows,
               m.board_columns, m.min_word_length, m.started_at,
               mp.id AS player_id, mp.status AS player_status, mp.score,
               mp.level_reached, mp.lives_remaining, mp.board_version,
@@ -224,6 +229,7 @@ export class MysqlMatchRepository implements MatchRepository {
       language: match.language,
       mode: match.mode,
       theme: match.theme,
+      wordTarget: match.target_word_count,
       status: match.status,
       boardRows: match.board_rows,
       boardColumns: match.board_columns,
@@ -274,7 +280,7 @@ export class MysqlMatchRepository implements MatchRepository {
     try {
       await connection.beginTransaction();
       const [playerRows] = await connection.execute<LockedPlayerRow[]>(
-        `SELECT mp.id AS player_id, m.theme, m.status AS match_status,
+        `SELECT mp.id AS player_id, m.mode, m.theme, m.target_word_count, m.status AS match_status,
                 mp.status AS player_status, m.board_rows, m.board_columns,
                 m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
                 mp.joined_at, mp.game_time_ms
@@ -299,21 +305,13 @@ export class MysqlMatchRepository implements MatchRepository {
         });
       }
 
-      const [pendingRows] = await connection.execute<PendingWordRow[]>(
-        `SELECT match_player_id, formed_word, direction, points_earned,
-                board_version, cells, created_at
-         FROM match_pending_words
-         WHERE match_player_id = ?
-         LIMIT 1 FOR UPDATE`,
+      // A palavra destacada é uma oportunidade de pontuação, não uma pausa.
+      // Ao colocar outra peça, ela é recalculada sobre a versão mais nova do
+      // tabuleiro para permitir extensões como FEEL -> FEELING.
+      await connection.execute(
+        'DELETE FROM match_pending_words WHERE match_player_id = ?',
         [player.player_id],
       );
-      if (pendingRows.length > 0) {
-        throw new ApiError(
-          409,
-          'WORD_CONFIRMATION_REQUIRED',
-          'Confirm the pending word before placing another piece',
-        );
-      }
 
       const [pieceRows] = await connection.execute<PieceRow[]>(
         `SELECT id, letter, sequence_number, status, row_position, column_position
@@ -372,9 +370,9 @@ export class MysqlMatchRepository implements MatchRepository {
 
       const boardAfterPlacement = [...boardCells, placedPiece];
       const lifeLost = landingRow === 0;
-      const candidateWords = input.getWords
-        ? input.getWords(player.theme)
-        : (input.words ?? new Map());
+      // Toda palavra do dicionário é válida e pontua. O tema serve apenas
+      // para definir quais palavras avançam o objetivo do modo temático.
+      const candidateWords = input.words ?? new Map();
       const found = lifeLost
         ? undefined
         : findFirstWord(
@@ -421,6 +419,11 @@ export class MysqlMatchRepository implements MatchRepository {
       const gameOver = livesRemaining === 0;
 
       if (!gameOver) {
+        const nextPieces = input.createNextPieces(
+          player.mode,
+          player.theme,
+          Math.floor(chosen.sequence_number / 4),
+        );
         const [sequenceRows] = await connection.execute<
           (RowDataPacket & { max_sequence: number })[]
         >(
@@ -429,7 +432,7 @@ export class MysqlMatchRepository implements MatchRepository {
           [player.player_id],
         );
         const firstSequence = sequenceRows[0].max_sequence + 1;
-        for (const [index, piece] of input.nextPieces.entries()) {
+        for (const [index, piece] of nextPieces.entries()) {
           await connection.execute(
             `INSERT INTO match_letters
               (id, match_player_id, sequence_number, letter, status,
@@ -506,7 +509,7 @@ export class MysqlMatchRepository implements MatchRepository {
     try {
       await connection.beginTransaction();
       const [playerRows] = await connection.execute<LockedPlayerRow[]>(
-        `SELECT mp.id AS player_id, m.status AS match_status,
+        `SELECT mp.id AS player_id, m.mode, m.theme, m.target_word_count, m.status AS match_status,
                 mp.status AS player_status, m.board_rows, m.board_columns,
                 m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
                 mp.joined_at, mp.game_time_ms
@@ -560,7 +563,15 @@ export class MysqlMatchRepository implements MatchRepository {
         row: piece.row_position as number,
         column: piece.column_position as number,
       }));
-      const removedCells = parseBoardCells(pendingWord.cells);
+      const wordCells = parseBoardCells(pendingWord.cells);
+      const referenceCell = wordCells[0];
+      const removedCells = referenceCell
+        ? boardCells.filter((cell) =>
+            pendingWord.direction === 'horizontal'
+              ? cell.row === referenceCell.row
+              : cell.column === referenceCell.column,
+          )
+        : [];
       const removedIds = new Set(removedCells.map((cell) => cell.pieceId));
       const gravity = applyGravity(
         boardCells.filter((cell) => !removedIds.has(cell.pieceId)),
@@ -602,16 +613,50 @@ export class MysqlMatchRepository implements MatchRepository {
         'DELETE FROM match_pending_words WHERE match_player_id = ?',
         [player.player_id],
       );
+      let completed = false;
+      if (player.mode === 'learning' && player.theme && player.target_word_count) {
+        const [formedRows] = await connection.execute<
+          (RowDataPacket & { formed_word: string })[]
+        >(
+          'SELECT DISTINCT formed_word FROM game_words WHERE match_player_id = ?',
+          [player.player_id],
+        );
+        const thematicWords = input.getWords(player.theme);
+        const thematicCount = formedRows.filter((row) =>
+          thematicWords.has(row.formed_word.toLowerCase()),
+        ).length;
+        completed = thematicCount >= player.target_word_count;
+      }
       await connection.execute(
         `UPDATE match_players
-         SET score = ?, board_version = ?,
+         SET score = ?, board_version = ?, status = ?,
              game_time_ms = GREATEST(0,
                FLOOR(TIMESTAMPDIFF(MICROSECOND, joined_at, CURRENT_TIMESTAMP(3)) / 1000)
                - total_paused_ms),
-             last_activity_at = CURRENT_TIMESTAMP(3)
+             paused_at = NULL,
+             last_activity_at = CURRENT_TIMESTAMP(3),
+             finished_at = CASE WHEN ? THEN CURRENT_TIMESTAMP(3) ELSE finished_at END
          WHERE id = ?`,
-        [currentScore, nextBoardVersion, player.player_id],
+        [
+          currentScore,
+          nextBoardVersion,
+          completed ? 'completed' : 'playing',
+          completed,
+          player.player_id,
+        ],
       );
+      if (completed) {
+        await connection.execute(
+          `UPDATE matches SET status = 'finished', finished_at = CURRENT_TIMESTAMP(3)
+           WHERE id = ?`,
+          [input.matchId],
+        );
+        await connection.execute(
+          `UPDATE match_letters SET status = 'discarded'
+           WHERE match_player_id = ? AND status IN ('active', 'queued')`,
+          [player.player_id],
+        );
+      }
 
       await connection.commit();
       return {
@@ -625,6 +670,7 @@ export class MysqlMatchRepository implements MatchRepository {
         removedCells,
         movedCells: gravity.movedCells,
         currentScore,
+        completed,
       };
     } catch (error) {
       await rollback(connection);
@@ -788,7 +834,7 @@ export class MysqlMatchRepository implements MatchRepository {
                     - mp.total_paused_ms)
                   ELSE mp.game_time_ms
                 END AS game_time_ms,
-                COUNT(gw.id) AS words_found, m.started_at, m.finished_at
+                COUNT(DISTINCT gw.formed_word) AS words_found, m.started_at, m.finished_at
          FROM match_players mp
          INNER JOIN matches m ON m.id = mp.match_id
          LEFT JOIN game_words gw ON gw.match_player_id = mp.id
@@ -824,6 +870,60 @@ export class MysqlMatchRepository implements MatchRepository {
       total: countRows[0][0].total,
       limit,
       offset,
+    };
+  }
+
+  async getRanking(userId: string, query: RankingQuery): Promise<RankingResult> {
+    const learning = query.mode === 'learning';
+    const order = learning
+      ? 'game_time_ms ASC, score DESC, finished_at ASC, match_id ASC'
+      : 'score DESC, game_time_ms ASC, finished_at ASC, match_id ASC';
+    const conditions = learning
+      ? `m.mode = ? AND m.theme = ? AND m.target_word_count = ?
+         AND m.status = 'finished' AND mp.status = 'completed'`
+      : `m.mode = ? AND m.status = 'finished' AND mp.status = 'game_over'`;
+    const params: Array<string | number> = learning
+      ? [query.mode, query.theme as string, query.wordTarget as number]
+      : [query.mode];
+    type RankingRow = RowDataPacket & {
+      position: number;
+      user_id: string;
+      username: string;
+      score: number;
+      game_time_ms: number;
+    };
+    const [rows] = await this.database.execute<RankingRow[]>(
+      `WITH attempts AS (
+         SELECT mp.user_id, u.username, mp.score, mp.game_time_ms,
+                mp.finished_at, m.id AS match_id,
+                ROW_NUMBER() OVER (PARTITION BY mp.user_id ORDER BY ${order}) AS attempt_number
+         FROM match_players mp
+         INNER JOIN matches m ON m.id = mp.match_id
+         INNER JOIN users u ON u.id = mp.user_id
+         WHERE ${conditions}
+       ), best AS (
+         SELECT * FROM attempts WHERE attempt_number = 1
+       ), ranked AS (
+         SELECT ROW_NUMBER() OVER (ORDER BY ${order}) AS position,
+                user_id, username, score, game_time_ms
+         FROM best
+       )
+       SELECT position, user_id, username, score, game_time_ms
+       FROM ranked
+       WHERE position <= 100 OR user_id = ?
+       ORDER BY position`,
+      [...params, userId],
+    );
+    const mapped = rows.map((row) => ({
+      position: Number(row.position),
+      userId: row.user_id,
+      username: row.username,
+      score: row.score,
+      gameTimeMs: row.game_time_ms,
+    }));
+    return {
+      entries: mapped.filter((entry) => entry.position <= 100),
+      currentUser: mapped.find((entry) => entry.userId === userId) ?? null,
     };
   }
 

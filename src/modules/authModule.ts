@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import type {
   AuthenticationResult,
+  AvailabilityInput,
+  AvailabilityResult,
   AuthModuleOptions,
   LoginInput,
   PublicUser,
@@ -56,6 +58,14 @@ export class AuthModule {
     }
 
     return { user: publicUser(user), token: this.createAuthToken(user.id) };
+  }
+
+  async checkAvailability(input: AvailabilityInput): Promise<AvailabilityResult> {
+    const existingUser = input.username !== undefined
+      ? await this.users.findByUsername(input.username)
+      : await this.users.findByEmail(input.email as string);
+
+    return { available: existingUser === undefined };
   }
 
   async loginUser(input: LoginInput): Promise<AuthenticationResult> {

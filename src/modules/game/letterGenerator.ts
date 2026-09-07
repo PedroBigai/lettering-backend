@@ -1,5 +1,5 @@
 import { randomInt as cryptoRandomInt } from 'node:crypto';
-import type { BatchRules, LetterDefinition, RandomInt } from '../../interfaces/game';
+import type { BatchRules, LetterDefinition, RandomInt, WordDefinition } from '../../interfaces/game';
 
 const englishVowels = new Set(['A', 'E', 'I', 'O', 'U']);
 
@@ -42,16 +42,95 @@ export function generateLetterOptions(
   letters: readonly LetterDefinition[],
   randomInt: RandomInt = cryptoRandomInt,
 ): string[] {
-  return generateLetterBatch(
-    letters,
-    {
-      size: 4,
-      minVowels: 1,
-      maxConsecutiveEqual: 1,
-      uniqueLetters: true,
-    },
-    randomInt,
+  const vowels = letters.filter((letter) => englishVowels.has(letter.value));
+  if (vowels.length === 0) throw new Error('The letter collection cannot satisfy the vowel rule');
+
+  const batch = [vowels[randomInt(vowels.length)].value];
+  while (batch.length < 4) {
+    const candidates = letters.filter((letter) => !batch.includes(letter.value));
+    batch.push(drawWeightedLetter(candidates, randomInt));
+  }
+
+  for (let index = batch.length - 1; index > 0; index -= 1) {
+    const randomIndex = randomInt(index + 1);
+    [batch[index], batch[randomIndex]] = [batch[randomIndex], batch[index]];
+  }
+
+  return batch;
+}
+
+export function generateThematicLetterOptions(
+  letters: readonly LetterDefinition[],
+  words: ReadonlyMap<string, WordDefinition>,
+  rotationIndex = 0,
+  randomInt: RandomInt = cryptoRandomInt,
+): string[] {
+  const guideWords = [...words.keys()];
+  if (guideWords.length === 0) return generateLetterOptions(letters, randomInt);
+
+  const guide = guideWords[randomInt(guideWords.length)].toUpperCase();
+  const usefulLetters = [...new Set(guide)].filter((letter) =>
+    letters.some((definition) => definition.value === letter),
   );
+
+  for (let index = usefulLetters.length - 1; index > 0; index -= 1) {
+    const randomIndex = randomInt(index + 1);
+    [usefulLetters[index], usefulLetters[randomIndex]] = [usefulLetters[randomIndex], usefulLetters[index]];
+  }
+
+  const rotationLetter = letters[rotationIndex % letters.length].value;
+  const batch = [rotationLetter];
+  usefulLetters.forEach((letter) => {
+    if (batch.length < 4 && !batch.includes(letter)) batch.push(letter);
+  });
+  if (!batch.some((letter) => englishVowels.has(letter))) {
+    const guideVowel = [...guide].find((letter) => englishVowels.has(letter));
+    if (guideVowel && !batch.includes(guideVowel)) {
+      if (batch.length === 4) batch.pop();
+      batch.push(guideVowel);
+    }
+  }
+
+  while (batch.length < 4) {
+    const candidates = letters.filter((letter) => !batch.includes(letter.value));
+    batch.push(drawWeightedLetter(candidates, randomInt));
+  }
+
+  if (!batch.some((letter) => englishVowels.has(letter))) {
+    const vowels = letters.filter((letter) => englishVowels.has(letter.value));
+    batch[batch.length - 1] = vowels[randomInt(vowels.length)].value;
+  }
+
+  for (let index = batch.length - 1; index > 0; index -= 1) {
+    const randomIndex = randomInt(index + 1);
+    [batch[index], batch[randomIndex]] = [batch[randomIndex], batch[index]];
+  }
+
+  return batch;
+}
+
+export function generateRotatingLetterOptions(
+  letters: readonly LetterDefinition[],
+  rotationIndex = 0,
+  randomInt: RandomInt = cryptoRandomInt,
+): string[] {
+  if (letters.length === 0) throw new Error('Cannot draw from an empty letter collection');
+  const rotationLetter = letters[rotationIndex % letters.length].value;
+  const batch = [rotationLetter];
+  const vowels = letters.filter((letter) => englishVowels.has(letter.value));
+
+  if (!englishVowels.has(rotationLetter)) {
+    batch.push(vowels[randomInt(vowels.length)].value);
+  }
+  while (batch.length < 4) {
+    const candidates = letters.filter((letter) => !batch.includes(letter.value));
+    batch.push(drawWeightedLetter(candidates, randomInt));
+  }
+  for (let index = batch.length - 1; index > 0; index -= 1) {
+    const randomIndex = randomInt(index + 1);
+    [batch[index], batch[randomIndex]] = [batch[randomIndex], batch[index]];
+  }
+  return batch;
 }
 
 export function generateLetterBatch(

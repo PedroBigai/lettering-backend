@@ -14,7 +14,7 @@ test('loads and validates the English content files', async () => {
   const content = await loadEnglishContent();
 
   assert.equal(content.letters.length, 26);
-  assert.equal(content.words.size, 1050);
+  assert.equal(content.words.size, 1054);
   assert.deepEqual(findEnglishWord(content, ' APPLE ')?.translations['pt-BR'], ['maçã']);
   assert.equal(findEnglishWord(content, 'APPLE')?.translations['en-US'], undefined);
   assert.equal(findEnglishWord(content, 'APPLE')?.score, 50);

@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { getMe } from '../controllers/getMe';
 import { postAuth } from '../controllers/postAuth';
 import { postRegisterUser } from '../controllers/postRegisterUser';
+import { postAuthAvailability } from '../controllers/postAuthAvailability';
 import { postMatch } from '../controllers/postMatch';
 import { getMatch } from '../controllers/getMatch';
 import { getMatches } from '../controllers/getMatches';
+import { getRanking } from '../controllers/getRanking';
 import { getMatchState } from '../controllers/getMatchState';
 import { postLeaveMatch } from '../controllers/postLeaveMatch';
 import { postPauseMatch } from '../controllers/postPauseMatch';
@@ -27,8 +29,13 @@ export function createApiRouter(includeMatchRoutes = true) {
     maxRequests: 10,
     key: (_request, response) => String(response.locals.userId ?? 'unknown'),
   });
-
+  const limitAvailabilityChecks = rateLimit({
+    windowMs: 60 * 1_000,
+    maxRequests: 30,
+    key: (request) => request.ip ?? 'unknown',
+  });
   router.post('/auth/register', postRegisterUser);
+  router.post('/auth/availability', limitAvailabilityChecks, postAuthAvailability);
   router.post('/auth/login', limitLogin, postAuth);
   router.get('/auth/me', authenticate, getMe);
 
@@ -40,6 +47,7 @@ export function createApiRouter(includeMatchRoutes = true) {
       postMatch,
     );
     router.get('/matches', authenticate, getMatches);
+    router.get('/rankings', authenticate, getRanking);
     router.get(
       '/matches/:matchId/state',
       authenticate,

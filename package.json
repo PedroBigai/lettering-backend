@@ -11,7 +11,8 @@
     "test": "npm run build && node --test tests/*.test.js",
     "migrate": "ts-node src/scripts/migrate.ts",
     "migrations": "npm run migrate",
-    "migrate:production": "node dist/scripts/migrate.js"
+    "migrate:production": "node dist/scripts/migrate.js",
+    "seed:rankings": "ts-node src/scripts/seedRankings.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

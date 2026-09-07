@@ -5,10 +5,15 @@ import type {
   ConfirmWordInput,
   MatchRepository,
   MatchHistoryQuery,
+  RankingQuery,
   MatchSnapshot,
   PlacePieceInput,
 } from '../interfaces/match';
-import { generateLetterOptions } from './game/letterGenerator';
+import {
+  generateLetterOptions,
+  generateRotatingLetterOptions,
+  generateThematicLetterOptions,
+} from './game/letterGenerator';
 import { getWordsForMatch } from './game/content';
 import { ApiError } from '../server/errors';
 
@@ -21,7 +26,14 @@ export class MatchModule {
   async createMatch(userId: string, input: CreateMatchInput): Promise<MatchSnapshot> {
     const matchId = randomUUID();
     const playerId = randomUUID();
-    const letters = generateLetterOptions(this.content.letters);
+    const letters = input.mode === 'learning'
+      ? generateThematicLetterOptions(
+          this.content.letters,
+          getWordsForMatch(this.content, input.theme),
+        )
+      : input.mode === 'classic'
+        ? generateRotatingLetterOptions(this.content.letters)
+      : generateLetterOptions(this.content.letters);
 
     await this.matches.createSoloMatch({
       matchId,
@@ -29,6 +41,7 @@ export class MatchModule {
       userId,
       mode: input.mode,
       theme: input.theme ?? null,
+      wordTarget: input.wordTarget ?? null,
       language: input.language,
       pieces: letters.map((letter, index) => ({
         id: randomUUID(),
@@ -57,6 +70,7 @@ export class MatchModule {
         language: snapshot.language,
         mode: snapshot.mode,
         theme: snapshot.theme,
+        wordTarget: snapshot.wordTarget,
         status: snapshot.status,
         startedAt: snapshot.startedAt,
         board: {
@@ -78,6 +92,7 @@ export class MatchModule {
         rules: {
           minWordLength: snapshot.minWordLength,
           letterOptionsPerTurn: 4,
+          wordTarget: snapshot.wordTarget,
         },
         player: snapshot.player,
         letterOptions: snapshot.pieces
@@ -94,7 +109,9 @@ export class MatchModule {
             letter: piece.letter,
             sequenceNumber: piece.sequenceNumber,
           })),
-        foundWords: snapshot.words.map((word) => {
+        foundWords: snapshot.words.filter((word, index, words) =>
+          words.findIndex((candidate) => candidate.formedWord === word.formedWord) === index,
+        ).map((word) => {
           const definition =
             matchWords.get(word.formedWord) ?? this.content.words.get(word.formedWord);
           return {
@@ -122,7 +139,6 @@ export class MatchModule {
   }
 
   async placeMatchPiece(userId: string, matchId: string, input: PlacePieceInput) {
-    const nextLetters = generateLetterOptions(this.content.letters);
     const result = await this.matches.placePiece({
       matchId,
       userId,
@@ -131,7 +147,18 @@ export class MatchModule {
       boardVersion: input.boardVersion,
       words: this.content.words,
       getWords: (theme) => getWordsForMatch(this.content, theme),
-      nextPieces: nextLetters.map((letter) => ({ id: randomUUID(), letter })),
+      createNextPieces: (mode, theme, rotationIndex) => {
+        const nextLetters = mode === 'learning'
+          ? generateThematicLetterOptions(
+              this.content.letters,
+              getWordsForMatch(this.content, theme),
+              rotationIndex,
+            )
+          : mode === 'classic'
+            ? generateRotatingLetterOptions(this.content.letters, rotationIndex)
+          : generateLetterOptions(this.content.letters);
+        return nextLetters.map((letter) => ({ id: randomUUID(), letter }));
+      },
     });
     const snapshot = await this.getMatchState(userId, matchId);
 
@@ -148,6 +175,7 @@ export class MatchModule {
       matchId,
       userId,
       boardVersion: input.boardVersion,
+      getWords: (theme) => getWordsForMatch(this.content, theme),
     });
     const snapshot = await this.getMatchState(userId, matchId);
     const matchWords = getWordsForMatch(this.content, snapshot.match.theme);
@@ -184,6 +212,10 @@ export class MatchModule {
 
   async getMatches(userId: string, query: MatchHistoryQuery) {
     return this.matches.listByUser(userId, query.limit, query.offset);
+  }
+
+  async getRanking(userId: string, query: RankingQuery) {
+    return this.matches.getRanking(userId, query);
   }
 
   async expireInactiveMatches(timeoutSeconds: number) {

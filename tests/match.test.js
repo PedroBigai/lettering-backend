@@ -84,7 +84,8 @@ class InMemoryMatchRepository {
     });
     chosen.row = 9;
     chosen.column = input.column;
-    snapshot.pieces.push(...input.nextPieces.map((piece, index) => ({
+    const nextPieces = input.createNextPieces(snapshot.mode, snapshot.theme, 1, []);
+    snapshot.pieces.push(...nextPieces.map((piece, index) => ({
       ...piece,
       sequenceNumber: snapshot.pieces.length + index + 1,
       status: 'active',

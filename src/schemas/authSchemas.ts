@@ -23,3 +23,12 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const availabilitySchema = z
+  .object({
+    username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/).optional(),
+    email: z.string().trim().email().max(255).transform((email) => email.toLowerCase()).optional(),
+  })
+  .refine((input) => Number(input.username !== undefined) + Number(input.email !== undefined) === 1, {
+    message: 'Provide exactly one of username or email',
+  });
+

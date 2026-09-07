@@ -30,6 +30,7 @@ class InMemoryMatchRepository {
       language: input.language,
       mode: input.mode,
       theme: input.theme ?? null,
+      wordTarget: input.wordTarget ?? null,
       status: 'in_progress',
       boardRows: 10,
       boardColumns: 9,
@@ -121,19 +122,20 @@ test('validates learning mode requires a valid theme', async () => {
     });
     assert.equal(invalidThemeRes.status, 400);
 
-    // 3. Learning with valid theme -> 201
+    // 3. Learning with valid theme and target -> 201
     const validRes = await fetch(`http://localhost:${port}/api/v1/matches`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${user.token}`,
       },
-      body: JSON.stringify({ mode: 'learning', theme: 'animals' }),
+      body: JSON.stringify({ mode: 'learning', theme: 'animals', wordTarget: 10 }),
     });
     assert.equal(validRes.status, 201);
     const validData = await validRes.json();
     assert.equal(validData.match.mode, 'learning');
     assert.equal(validData.match.theme, 'animals');
+    assert.equal(validData.match.wordTarget, 10);
     assert.equal(validData.match.player.livesRemaining, 3);
   } finally {
     server.close();
