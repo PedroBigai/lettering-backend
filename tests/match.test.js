@@ -93,6 +93,13 @@ class InMemoryMatchRepository {
       column: null,
     })));
     snapshot.player.boardVersion += 1;
+    const gameOver = Boolean(snapshot.forceGameOver);
+    if (gameOver) {
+      snapshot.status = 'finished';
+      snapshot.player.status = 'game_over';
+      snapshot.finishedAt = new Date();
+      this.reconcileTopScore(snapshot);
+    }
     return {
       boardVersion: snapshot.player.boardVersion,
       placedPiece: {
@@ -104,11 +111,22 @@ class InMemoryMatchRepository {
       foundWord: null,
       removedCells: [],
       movedCells: [],
-      currentScore: 0,
+      currentScore: snapshot.player.score,
       lifeLost: false,
-      livesRemaining: snapshot.player.livesRemaining,
-      gameOver: false,
+      livesRemaining: gameOver ? 0 : snapshot.player.livesRemaining,
+      gameOver,
     };
+  }
+
+  reconcileTopScore(snapshot) {
+    const list = [...this.snapshots.values()].filter(
+      (item) => item.userId === snapshot.userId && item.mode === snapshot.mode && item.status === 'finished',
+    );
+    if (list.length <= 1) return;
+    list.sort((a, b) => b.player.score - a.player.score);
+    for (const inferior of list.slice(1)) {
+      this.snapshots.delete(inferior.id);
+    }
   }
 
   async confirmWord(input) {
@@ -135,6 +153,7 @@ class InMemoryMatchRepository {
     if (!snapshot) throw new Error('Match not found');
     snapshot.player.status = 'left';
     snapshot.status = 'cancelled';
+    this.snapshots.delete(matchId);
   }
 
   async setPaused(matchId, userId, paused) {
@@ -158,7 +177,7 @@ class InMemoryMatchRepository {
         gameTimeMs: snapshot.player.gameTimeMs,
         wordsFound: snapshot.words.length,
         startedAt: snapshot.startedAt,
-        finishedAt: null,
+        finishedAt: snapshot.finishedAt ?? null,
       }));
     return { items: items.slice(offset, offset + limit), total: items.length, limit, offset };
   }
@@ -209,7 +228,9 @@ function createTestApplication() {
     words: new Map(),
   };
   const matchModule = new MatchModule(matches, content);
-  return createApp({ authModule, matchModule });
+  const app = createApp({ authModule, matchModule });
+  app.matchesRepo = matches;
+  return app;
 }
 
 test('creates an authenticated 10x9 classic match with four letter choices', async () => {
@@ -348,3 +369,115 @@ test('protects match creation and does not expose another user match', async () 
     assert.equal(hidden.body.error.code, 'MATCH_NOT_FOUND');
   });
 });
+
+test('retains only the top score match per user and mode upon game completion', async () => {
+  const app = createTestApplication();
+
+  await withServer(app, async (baseUrl) => {
+    const token = await register(baseUrl, 'scorer', 'scorer@example.com');
+
+    // Partida 1: Conclui com 100 pontos (primeiro recorde)
+    const match1 = await jsonRequest(baseUrl, '/api/v1/matches', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ mode: 'classic', language: 'en-US' }),
+    });
+    const snap1 = app.matchesRepo.snapshots.get(match1.body.match.id);
+    snap1.player.score = 100;
+    snap1.forceGameOver = true;
+
+    const piece1 = match1.body.match.letterOptions[0];
+    await jsonRequest(baseUrl, `/api/v1/matches/${match1.body.match.id}/pieces/place`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pieceId: piece1.pieceId, column: 0, boardVersion: 0 }),
+    });
+
+    let history = await jsonRequest(baseUrl, '/api/v1/matches', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(history.body.total, 1);
+    assert.equal(history.body.items[0].id, match1.body.match.id);
+    assert.equal(history.body.items[0].score, 100);
+
+    // Partida 2: Conclui com 50 pontos (inferior ao recorde de 100) -> descartada
+    const match2 = await jsonRequest(baseUrl, '/api/v1/matches', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ mode: 'classic', language: 'en-US' }),
+    });
+    const snap2 = app.matchesRepo.snapshots.get(match2.body.match.id);
+    snap2.player.score = 50;
+    snap2.forceGameOver = true;
+
+    const piece2 = match2.body.match.letterOptions[0];
+    await jsonRequest(baseUrl, `/api/v1/matches/${match2.body.match.id}/pieces/place`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pieceId: piece2.pieceId, column: 0, boardVersion: 0 }),
+    });
+
+    history = await jsonRequest(baseUrl, '/api/v1/matches', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(history.body.total, 1);
+    assert.equal(history.body.items[0].id, match1.body.match.id);
+    assert.equal(history.body.items[0].score, 100);
+
+    // Partida 3: Conclui com 250 pontos (novo recorde) -> substitui a partida anterior
+    const match3 = await jsonRequest(baseUrl, '/api/v1/matches', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ mode: 'classic', language: 'en-US' }),
+    });
+    const snap3 = app.matchesRepo.snapshots.get(match3.body.match.id);
+    snap3.player.score = 250;
+    snap3.forceGameOver = true;
+
+    const piece3 = match3.body.match.letterOptions[0];
+    await jsonRequest(baseUrl, `/api/v1/matches/${match3.body.match.id}/pieces/place`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pieceId: piece3.pieceId, column: 0, boardVersion: 0 }),
+    });
+
+    history = await jsonRequest(baseUrl, '/api/v1/matches', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(history.body.total, 1);
+    assert.equal(history.body.items[0].id, match3.body.match.id);
+    assert.equal(history.body.items[0].score, 250);
+  });
+});
+
+test('removes match from history when user leaves an in-progress game', async () => {
+  const app = createTestApplication();
+
+  await withServer(app, async (baseUrl) => {
+    const token = await register(baseUrl, 'quitter', 'quitter@example.com');
+    const created = await jsonRequest(baseUrl, '/api/v1/matches', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ mode: 'classic', language: 'en-US' }),
+    });
+
+    let history = await jsonRequest(baseUrl, '/api/v1/matches', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(history.body.total, 1);
+
+    const left = await jsonRequest(baseUrl, `/api/v1/matches/${created.body.match.id}/leave`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: '{}',
+    });
+    assert.equal(left.response.status, 200);
+    assert.equal(left.body.left, true);
+
+    history = await jsonRequest(baseUrl, '/api/v1/matches', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(history.body.total, 0);
+  });
+});
+

@@ -472,6 +472,13 @@ export class MysqlMatchRepository implements MatchRepository {
            WHERE id = ?`,
           [input.matchId],
         );
+        await this.reconcileUserTopScoreMatch(
+          connection,
+          input.userId,
+          player.mode,
+          player.theme,
+          player.target_word_count,
+        );
       }
 
       await connection.commit();
@@ -656,6 +663,13 @@ export class MysqlMatchRepository implements MatchRepository {
            WHERE match_player_id = ? AND status IN ('active', 'queued')`,
           [player.player_id],
         );
+        await this.reconcileUserTopScoreMatch(
+          connection,
+          input.userId,
+          player.mode,
+          player.theme,
+          player.target_word_count,
+        );
       }
 
       await connection.commit();
@@ -738,8 +752,7 @@ export class MysqlMatchRepository implements MatchRepository {
       );
       if (activeRows[0].active_players === 0) {
         await connection.execute(
-          `UPDATE matches
-           SET status = 'cancelled', finished_at = CURRENT_TIMESTAMP(3)
+          `DELETE FROM matches
            WHERE id = ? AND status IN ('waiting', 'in_progress')`,
           [matchId],
         );
@@ -971,8 +984,7 @@ export class MysqlMatchRepository implements MatchRepository {
           [row.player_id],
         );
         await connection.execute(
-          `UPDATE matches
-           SET status = 'cancelled', finished_at = CURRENT_TIMESTAMP(3)
+          `DELETE FROM matches
            WHERE id = ?
              AND status IN ('waiting', 'in_progress')
              AND NOT EXISTS (
@@ -991,6 +1003,45 @@ export class MysqlMatchRepository implements MatchRepository {
       throw error;
     } finally {
       connection.release();
+    }
+  }
+
+  private async reconcileUserTopScoreMatch(
+    connection: PoolConnection,
+    userId: string,
+    mode: string,
+    theme: string | null,
+    targetWordCount: number | null,
+  ): Promise<void> {
+    const learning = mode === 'learning';
+    const order = learning
+      ? 'mp.game_time_ms ASC, mp.score DESC, mp.finished_at ASC, m.id ASC'
+      : 'mp.score DESC, mp.game_time_ms ASC, mp.finished_at ASC, m.id ASC';
+
+    const conditions = learning
+      ? `m.mode = ? AND m.theme = ? AND m.target_word_count = ?
+         AND m.status = 'finished' AND mp.status = 'completed'`
+      : `m.mode = ? AND m.status = 'finished' AND mp.status = 'game_over'`;
+
+    const params: Array<string | number> = learning
+      ? [userId, mode, theme as string, targetWordCount as number]
+      : [userId, mode];
+
+    const [rows] = await connection.execute<(RowDataPacket & { match_id: string })[]>(
+      `SELECT m.id AS match_id
+       FROM matches m
+       INNER JOIN match_players mp ON mp.match_id = m.id
+       WHERE mp.user_id = ?
+         AND ${conditions}
+       ORDER BY ${order}
+       FOR UPDATE`,
+      params,
+    );
+
+    if (rows.length > 1) {
+      for (const row of rows.slice(1)) {
+        await connection.execute('DELETE FROM matches WHERE id = ?', [row.match_id]);
+      }
     }
   }
 }
