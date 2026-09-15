@@ -47,6 +47,9 @@ A documentação técnica detalhada de todos os endpoints, esquemas de dados, re
 
 👉 **[docs/API.md](docs/API.md)**
 
+Flashcards, sessões de estudo e histórico de revisões:
+**[docs/FLASHCARDS.md](docs/FLASHCARDS.md)**.
+
 ### Principais Funcionalidades da API:
 - **Autenticação Segura:** Cadastro, login com JWT e rate limiting (`/api/v1/auth`).
 - **Partidas Autoritativas:** Tabuleiro 10x9, gravidade por coluna e controle de concorrência por versão (`/api/v1/matches`).

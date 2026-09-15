@@ -15,8 +15,9 @@ import { postResumeMatch } from '../controllers/postResumeMatch';
 import { postConfirmMatchWord } from '../controllers/postConfirmMatchWord';
 import { authenticate } from '../server/middlewares/authenticate';
 import { rateLimit } from '../server/middlewares/rateLimit';
+import { getFlashcards, postFlashcardAction } from '../controllers/flashcards';
 
-export function createApiRouter(includeMatchRoutes = true) {
+export function createApiRouter(includeMatchRoutes = true, includeFlashcardRoutes = false) {
   const router = Router();
   const limitLogin = rateLimit({
     windowMs: 15 * 60 * 1_000,
@@ -38,6 +39,10 @@ export function createApiRouter(includeMatchRoutes = true) {
   router.post('/auth/availability', limitAvailabilityChecks, postAuthAvailability);
   router.post('/auth/login', limitLogin, postAuth);
   router.get('/auth/me', authenticate, getMe);
+  if (includeFlashcardRoutes) {
+    router.get('/flashcards', authenticate, getFlashcards);
+    router.post('/flashcards/actions', authenticate, postFlashcardAction);
+  }
 
   if (includeMatchRoutes) {
     router.post(

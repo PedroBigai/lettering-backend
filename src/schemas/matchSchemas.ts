@@ -4,7 +4,7 @@ import { VALID_THEMES } from '../modules/game/contentSchemas';
 
 export const createMatchSchema = z
   .object({
-    mode: z.enum(['classic', 'learning', 'hardcore']).default('classic'),
+    mode: z.enum(['classic', 'learning', 'hardcore', 'versus']).default('classic'),
     language: z.literal('en-US').default('en-US'),
     theme: z.enum(VALID_THEMES).optional().nullable(),
     wordTarget: z.union([z.literal(5), z.literal(10), z.literal(25), z.literal(50)]).optional().nullable(),

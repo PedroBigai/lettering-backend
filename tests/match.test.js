@@ -98,7 +98,6 @@ class InMemoryMatchRepository {
       snapshot.status = 'finished';
       snapshot.player.status = 'game_over';
       snapshot.finishedAt = new Date();
-      this.reconcileTopScore(snapshot);
     }
     return {
       boardVersion: snapshot.player.boardVersion,
@@ -116,17 +115,6 @@ class InMemoryMatchRepository {
       livesRemaining: gameOver ? 0 : snapshot.player.livesRemaining,
       gameOver,
     };
-  }
-
-  reconcileTopScore(snapshot) {
-    const list = [...this.snapshots.values()].filter(
-      (item) => item.userId === snapshot.userId && item.mode === snapshot.mode && item.status === 'finished',
-    );
-    if (list.length <= 1) return;
-    list.sort((a, b) => b.player.score - a.player.score);
-    for (const inferior of list.slice(1)) {
-      this.snapshots.delete(inferior.id);
-    }
   }
 
   async confirmWord(input) {
@@ -153,7 +141,7 @@ class InMemoryMatchRepository {
     if (!snapshot) throw new Error('Match not found');
     snapshot.player.status = 'left';
     snapshot.status = 'cancelled';
-    this.snapshots.delete(matchId);
+    snapshot.finishedAt = new Date();
   }
 
   async setPaused(matchId, userId, paused) {
@@ -370,7 +358,7 @@ test('protects match creation and does not expose another user match', async () 
   });
 });
 
-test('retains only the top score match per user and mode upon game completion', async () => {
+test('retains every completed game in history', async () => {
   const app = createTestApplication();
 
   await withServer(app, async (baseUrl) => {
@@ -387,11 +375,12 @@ test('retains only the top score match per user and mode upon game completion', 
     snap1.forceGameOver = true;
 
     const piece1 = match1.body.match.letterOptions[0];
-    await jsonRequest(baseUrl, `/api/v1/matches/${match1.body.match.id}/pieces/place`, {
+    const finished1 = await jsonRequest(baseUrl, `/api/v1/matches/${match1.body.match.id}/pieces/place`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
       body: JSON.stringify({ pieceId: piece1.pieceId, column: 0, boardVersion: 0 }),
     });
+    assert.equal(finished1.response.status, 200);
 
     let history = await jsonRequest(baseUrl, '/api/v1/matches', {
       headers: { authorization: `Bearer ${token}` },
@@ -400,7 +389,7 @@ test('retains only the top score match per user and mode upon game completion', 
     assert.equal(history.body.items[0].id, match1.body.match.id);
     assert.equal(history.body.items[0].score, 100);
 
-    // Partida 2: Conclui com 50 pontos (inferior ao recorde de 100) -> descartada
+    // A lower score is still kept in history.
     const match2 = await jsonRequest(baseUrl, '/api/v1/matches', {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
@@ -411,20 +400,21 @@ test('retains only the top score match per user and mode upon game completion', 
     snap2.forceGameOver = true;
 
     const piece2 = match2.body.match.letterOptions[0];
-    await jsonRequest(baseUrl, `/api/v1/matches/${match2.body.match.id}/pieces/place`, {
+    const finished2 = await jsonRequest(baseUrl, `/api/v1/matches/${match2.body.match.id}/pieces/place`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
       body: JSON.stringify({ pieceId: piece2.pieceId, column: 0, boardVersion: 0 }),
     });
+    assert.equal(finished2.response.status, 200);
 
     history = await jsonRequest(baseUrl, '/api/v1/matches', {
       headers: { authorization: `Bearer ${token}` },
     });
-    assert.equal(history.body.total, 1);
+    assert.equal(history.body.total, 2);
     assert.equal(history.body.items[0].id, match1.body.match.id);
     assert.equal(history.body.items[0].score, 100);
 
-    // Partida 3: Conclui com 250 pontos (novo recorde) -> substitui a partida anterior
+    // A new record does not delete previous attempts.
     const match3 = await jsonRequest(baseUrl, '/api/v1/matches', {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
@@ -435,22 +425,22 @@ test('retains only the top score match per user and mode upon game completion', 
     snap3.forceGameOver = true;
 
     const piece3 = match3.body.match.letterOptions[0];
-    await jsonRequest(baseUrl, `/api/v1/matches/${match3.body.match.id}/pieces/place`, {
+    const finished3 = await jsonRequest(baseUrl, `/api/v1/matches/${match3.body.match.id}/pieces/place`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
       body: JSON.stringify({ pieceId: piece3.pieceId, column: 0, boardVersion: 0 }),
     });
+    assert.equal(finished3.response.status, 200);
 
     history = await jsonRequest(baseUrl, '/api/v1/matches', {
       headers: { authorization: `Bearer ${token}` },
     });
-    assert.equal(history.body.total, 1);
-    assert.equal(history.body.items[0].id, match3.body.match.id);
-    assert.equal(history.body.items[0].score, 250);
+    assert.equal(history.body.total, 3);
+    assert.deepEqual(history.body.items.map(item => item.score), [100, 50, 250]);
   });
 });
 
-test('removes match from history when user leaves an in-progress game', async () => {
+test('retains cancelled games when a user leaves', async () => {
   const app = createTestApplication();
 
   await withServer(app, async (baseUrl) => {
@@ -477,7 +467,9 @@ test('removes match from history when user leaves an in-progress game', async ()
     history = await jsonRequest(baseUrl, '/api/v1/matches', {
       headers: { authorization: `Bearer ${token}` },
     });
-    assert.equal(history.body.total, 0);
+    assert.equal(history.body.total, 1);
+    assert.equal(history.body.items[0].matchStatus, 'cancelled');
+    assert.equal(history.body.items[0].playerStatus, 'left');
   });
 });
 

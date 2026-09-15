@@ -53,6 +53,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   const allowedOrigins = new Set(dependencies.allowedOrigins ?? []);
   app.locals.authModule = dependencies.authModule;
   app.locals.matchModule = dependencies.matchModule;
+  app.locals.flashcardModule = dependencies.flashcardModule;
 
   app.disable('x-powered-by');
   app.use(requestContext(dependencies.enableRequestLogging ?? false));
@@ -64,7 +65,10 @@ export function createApp(dependencies: AppDependencies = {}) {
       return;
     }
 
-    if (!allowedOrigins.has(origin)) {
+    const isPrivateIp = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin);
+    const isAllowed = allowedOrigins.has('*') || allowedOrigins.has(origin) || (process.env.NODE_ENV !== 'production' && isPrivateIp);
+
+    if (!isAllowed) {
       next(new ApiError(403, 'CORS_ORIGIN_DENIED', 'Request origin is not allowed'));
       return;
     }
@@ -96,7 +100,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   if (dependencies.authModule) {
     app.use(
       '/api/v1',
-      createApiRouter(Boolean(dependencies.matchModule)),
+      createApiRouter(Boolean(dependencies.matchModule), Boolean(dependencies.flashcardModule)),
     );
   }
 

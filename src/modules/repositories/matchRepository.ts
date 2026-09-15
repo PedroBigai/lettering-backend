@@ -472,13 +472,6 @@ export class MysqlMatchRepository implements MatchRepository {
            WHERE id = ?`,
           [input.matchId],
         );
-        await this.reconcileUserTopScoreMatch(
-          connection,
-          input.userId,
-          player.mode,
-          player.theme,
-          player.target_word_count,
-        );
       }
 
       await connection.commit();
@@ -606,14 +599,17 @@ export class MysqlMatchRepository implements MatchRepository {
       }
       await connection.execute(
         `INSERT INTO game_words
-          (id, match_player_id, formed_word, points_earned, board_version, cells)
-         VALUES (UUID(), ?, ?, ?, ?, ?)`,
+          (id, match_player_id, formed_word, points_earned, board_version, cells, game_time_ms)
+         VALUES (UUID(), ?, ?, ?, ?, ?,
+           (SELECT GREATEST(0, FLOOR(TIMESTAMPDIFF(MICROSECOND, joined_at, CURRENT_TIMESTAMP(3)) / 1000)
+             - total_paused_ms) FROM match_players WHERE id = ?))`,
         [
           player.player_id,
           pendingWord.formed_word,
           pendingWord.points_earned,
           nextBoardVersion,
           JSON.stringify(removedCells),
+          player.player_id,
         ],
       );
       await connection.execute(
@@ -662,13 +658,6 @@ export class MysqlMatchRepository implements MatchRepository {
           `UPDATE match_letters SET status = 'discarded'
            WHERE match_player_id = ? AND status IN ('active', 'queued')`,
           [player.player_id],
-        );
-        await this.reconcileUserTopScoreMatch(
-          connection,
-          input.userId,
-          player.mode,
-          player.theme,
-          player.target_word_count,
         );
       }
 
@@ -752,7 +741,7 @@ export class MysqlMatchRepository implements MatchRepository {
       );
       if (activeRows[0].active_players === 0) {
         await connection.execute(
-          `DELETE FROM matches
+          `UPDATE matches SET status = 'cancelled', finished_at = CURRENT_TIMESTAMP(3)
            WHERE id = ? AND status IN ('waiting', 'in_progress')`,
           [matchId],
         );
@@ -984,7 +973,7 @@ export class MysqlMatchRepository implements MatchRepository {
           [row.player_id],
         );
         await connection.execute(
-          `DELETE FROM matches
+          `UPDATE matches SET status = 'cancelled', finished_at = CURRENT_TIMESTAMP(3)
            WHERE id = ?
              AND status IN ('waiting', 'in_progress')
              AND NOT EXISTS (
@@ -1006,42 +995,4 @@ export class MysqlMatchRepository implements MatchRepository {
     }
   }
 
-  private async reconcileUserTopScoreMatch(
-    connection: PoolConnection,
-    userId: string,
-    mode: string,
-    theme: string | null,
-    targetWordCount: number | null,
-  ): Promise<void> {
-    const learning = mode === 'learning';
-    const order = learning
-      ? 'mp.game_time_ms ASC, mp.score DESC, mp.finished_at ASC, m.id ASC'
-      : 'mp.score DESC, mp.game_time_ms ASC, mp.finished_at ASC, m.id ASC';
-
-    const conditions = learning
-      ? `m.mode = ? AND m.theme = ? AND m.target_word_count = ?
-         AND m.status = 'finished' AND mp.status = 'completed'`
-      : `m.mode = ? AND m.status = 'finished' AND mp.status = 'game_over'`;
-
-    const params: Array<string | number> = learning
-      ? [userId, mode, theme as string, targetWordCount as number]
-      : [userId, mode];
-
-    const [rows] = await connection.execute<(RowDataPacket & { match_id: string })[]>(
-      `SELECT m.id AS match_id
-       FROM matches m
-       INNER JOIN match_players mp ON mp.match_id = m.id
-       WHERE mp.user_id = ?
-         AND ${conditions}
-       ORDER BY ${order}
-       FOR UPDATE`,
-      params,
-    );
-
-    if (rows.length > 1) {
-      for (const row of rows.slice(1)) {
-        await connection.execute('DELETE FROM matches WHERE id = ?', [row.match_id]);
-      }
-    }
-  }
 }
