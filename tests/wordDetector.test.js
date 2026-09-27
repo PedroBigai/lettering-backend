@@ -4,7 +4,6 @@ const { findFirstWord } = require('../dist/modules/game/wordDetector');
 
 const definition = (score) => ({
   translations: { 'pt-BR': ['tradução'] },
-  description: { 'pt-BR': ['Descrição'] },
   score,
 });
 const words = new Map([

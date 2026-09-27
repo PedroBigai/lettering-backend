@@ -54,5 +54,5 @@ Flashcards, sessões de estudo e histórico de revisões:
 - **Autenticação Segura:** Cadastro, login com JWT e rate limiting (`/api/v1/auth`).
 - **Partidas Autoritativas:** Tabuleiro 10x9, gravidade por coluna e controle de concorrência por versão (`/api/v1/matches`).
 - **Modos de Jogo:** Clássico (`classic`), Aprendizado (`learning` — com tema obrigatório) e Hardcore (`hardcore` — 1 vida).
-- **9 Temas Disponíveis:** `animals`, `objects`, `verbs`, `food`, `places`, `adjectives`, `colors`, `nature`, `professions`.
-- **Dicionário com +1.050 Palavras:** Validadas com traduções em PT/ES e descrições educativas.
+- **Temas disponíveis:** `animals`, `verbs`, `adjectives`, `objects`, `nouns`, `food` e `nature`.
+- **Dicionário com 600 entradas:** 300 animais e 300 verbos em ordem alfabética, somando 599 palavras inglesas únicas porque `FLY` pertence aos dois temas.

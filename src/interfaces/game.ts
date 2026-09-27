@@ -15,7 +15,6 @@ export type WordDirection = 'horizontal' | 'vertical';
 
 export interface WordDefinition {
   translations: Record<string, string[]>;
-  description: Record<string, string[]>;
   score: number;
 }
 

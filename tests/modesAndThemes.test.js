@@ -160,12 +160,12 @@ test('creates hardcore match with 1 initial life and optional theme', async () =
         'Content-Type': 'application/json',
         Authorization: `Bearer ${user.token}`,
       },
-      body: JSON.stringify({ mode: 'hardcore', theme: 'food' }),
+      body: JSON.stringify({ mode: 'hardcore', theme: 'animals' }),
     });
     assert.equal(res.status, 201);
     const data = await res.json();
     assert.equal(data.match.mode, 'hardcore');
-    assert.equal(data.match.theme, 'food');
+    assert.equal(data.match.theme, 'animals');
     assert.equal(data.match.player.livesRemaining, 1);
   } finally {
     server.close();
@@ -175,16 +175,43 @@ test('creates hardcore match with 1 initial life and optional theme', async () =
 test('getWordsForMatch filters correctly by theme', async () => {
   const content = await loadEnglishContent();
 
-  assert.equal(VALID_THEMES.length, 9);
+  assert.deepEqual(VALID_THEMES, ['animals', 'verbs', 'adjectives', 'objects', 'nouns', 'food', 'nature']);
 
   const animalWords = getWordsForMatch(content, 'animals');
   assert.ok(animalWords.has('cat'));
   assert.ok(animalWords.has('dog'));
-  assert.equal(animalWords.has('apple'), false); // apple is food
+  assert.equal(animalWords.has('apple'), false);
+
+  const verbWords = getWordsForMatch(content, 'verbs');
+  assert.ok(verbWords.has('run'));
+  assert.ok(verbWords.has('write'));
+  assert.equal(verbWords.has('lion'), false);
+
+  const adjectiveWords = getWordsForMatch(content, 'adjectives');
+  assert.ok(adjectiveWords.has('happy'));
+  assert.ok(adjectiveWords.has('strong'));
+  assert.equal(adjectiveWords.has('lion'), false);
+
+  const objectWords = getWordsForMatch(content, 'objects');
+  assert.ok(objectWords.has('chair'));
+  assert.ok(objectWords.has('keyboard'));
+  assert.equal(objectWords.has('happy'), false);
+
+  const nounWords = getWordsForMatch(content, 'nouns');
+  assert.ok(nounWords.has('life'));
+  assert.ok(nounWords.has('time'));
+  assert.ok(nounWords.has('chair'));
+  assert.ok(nounWords.has('apple'));
 
   const foodWords = getWordsForMatch(content, 'food');
   assert.ok(foodWords.has('apple'));
-  assert.equal(foodWords.has('lion'), false); // lion is animal
+  assert.ok(foodWords.has('bake'));
+  assert.equal(foodWords.has('lion'), false);
+
+  const natureWords = getWordsForMatch(content, 'nature');
+  assert.ok(natureWords.has('tree'));
+  assert.ok(natureWords.has('cat'));
+  assert.equal(natureWords.has('keyboard'), false);
 
   const allWords = getWordsForMatch(content, null);
   assert.ok(allWords.has('cat'));

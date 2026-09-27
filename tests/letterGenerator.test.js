@@ -23,7 +23,7 @@ test('draws a letter according to the configured weight interval', () => {
 test('generates thematic choices using letters from a guide word', async () => {
   const content = await loadEnglishContent();
   const words = new Map([
-    ['cat', { translations: {}, description: {}, score: 30 }],
+    ['cat', { translations: {}, score: 30 }],
   ]);
   const options = generateThematicLetterOptions(content.letters, words, 0, () => 0);
 

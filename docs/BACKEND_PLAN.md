@@ -94,7 +94,7 @@ O MVP utilizará:
 
 - matriz de 10 linhas por 9 colunas, acompanhando o tabuleiro atual do frontend;
 - palavras somente em inglês;
-- traduções e descrições em português;
+- traduções em português e espanhol;
 - detecção horizontal e vertical;
 - primeira palavra válida encontrada após a jogada;
 - partidas solo e estrutura preparada para multiplayer;
@@ -287,12 +287,10 @@ Usado para validação, aprendizado e pontuação:
   "words": {
     "fall": {
       "translations": ["cair", "queda"],
-      "description": "Mover-se para baixo, geralmente por causa da gravidade.",
       "score": 40
     },
     "apple": {
       "translations": ["maçã"],
-      "description": "Uma fruta arredondada que cresce na macieira.",
       "score": 50
     }
   }
@@ -438,7 +436,7 @@ created_at          DATETIME(3) NOT NULL
 ]
 ```
 
-Traduções e descrições não são duplicadas no banco. `points_earned` é salvo para preservar o valor histórico concedido.
+Traduções não são duplicadas no banco. `points_earned` é salvo para preservar o valor histórico concedido.
 
 ## 10. Contrato HTTP inicial
 

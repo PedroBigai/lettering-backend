@@ -7,6 +7,7 @@ import type {
   rankingQuerySchema,
 } from '../schemas/matchSchemas';
 import type { BoardCell, MovedCell, WordDefinition } from './game';
+import type { WordCycle } from '../modules/game/wordCycle';
 
 export type CreateMatchInput = z.infer<typeof createMatchSchema>;
 export type PlacePieceInput = z.infer<typeof placePieceSchema>;
@@ -23,6 +24,7 @@ export interface NewMatch {
   wordTarget?: number | null;
   language: 'en-US';
   pieces: readonly { id: string; letter: string; sequenceNumber: number }[];
+  wordCycle?: WordCycle | null;
 }
 
 export interface MatchPlayerSnapshot {
@@ -34,6 +36,7 @@ export interface MatchPlayerSnapshot {
   boardVersion: number;
   gameTimeMs: number;
   pausedAt: Date | null;
+  wordCycle: WordCycle | null;
 }
 
 export interface MatchPieceSnapshot {
@@ -56,7 +59,6 @@ export interface MatchWordSnapshot {
 
 export interface MatchWordResultSnapshot extends MatchWordSnapshot {
   translations: Record<string, string[]>;
-  description: Record<string, string[]>;
 }
 
 export interface PendingWordSnapshot {
@@ -97,7 +99,10 @@ export interface PlacePieceRecord {
     mode: string,
     theme: string | null,
     rotationIndex: number,
-  ) => readonly { id: string; letter: string }[];
+    wordCycle: WordCycle | null,
+    board: readonly BoardCell[],
+    resetWordCycle: boolean,
+  ) => { pieces: readonly { id: string; letter: string }[]; wordCycle: WordCycle | null };
 }
 
 export interface FoundWordResult {
@@ -105,7 +110,6 @@ export interface FoundWordResult {
   direction: 'horizontal' | 'vertical';
   pointsEarned: number;
   translations: Record<string, string[]>;
-  description: Record<string, string[]>;
   cells: BoardCell[];
 }
 
@@ -126,6 +130,7 @@ export interface ConfirmWordRecord {
   userId: string;
   boardVersion: number;
   getWords: (theme: string | null) => ReadonlyMap<string, WordDefinition>;
+  replacementWord?: (cycle: WordCycle) => Promise<{ word: string; successes: number } | undefined>;
 }
 
 export interface ConfirmWordResult {
@@ -143,6 +148,8 @@ export interface ConfirmWordResult {
 }
 
 export interface MatchRepository {
+  listDueWords?(userId: string, theme: string): Promise<string[]>;
+  listWordSuccesses?(userId: string, theme: string): Promise<Map<string, number>>;
   createSoloMatch(input: NewMatch): Promise<void>;
   findSnapshot(matchId: string, userId: string): Promise<MatchSnapshotRecord | undefined>;
   placePiece(input: PlacePieceRecord): Promise<PlacePieceResult>;
@@ -214,5 +221,6 @@ export interface MatchSnapshot {
     queuedPieces: Array<{ pieceId: string; letter: string; sequenceNumber: number }>;
     foundWords: MatchWordResultSnapshot[];
     pendingWord: FoundWordResult | null;
+    wordCycle: WordCycle | null;
   };
 }

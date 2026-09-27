@@ -47,6 +47,7 @@ class InMemoryMatchRepository {
         boardVersion: 0,
         gameTimeMs: 0,
         pausedAt: null,
+        wordCycle: input.wordCycle ?? null,
       },
       pieces: input.pieces.map((piece) => ({
         id: piece.id,
@@ -84,8 +85,12 @@ class InMemoryMatchRepository {
     });
     chosen.row = 9;
     chosen.column = input.column;
-    const nextPieces = input.createNextPieces(snapshot.mode, snapshot.theme, 1, []);
-    snapshot.pieces.push(...nextPieces.map((piece, index) => ({
+    const generated = input.createNextPieces(snapshot.mode, snapshot.theme, 1,
+      snapshot.player.wordCycle, snapshot.pieces.filter(piece => piece.status === 'placed').map(piece => ({
+        pieceId: piece.id, letter: piece.letter, row: piece.row, column: piece.column,
+      })));
+    snapshot.player.wordCycle = generated.wordCycle;
+    snapshot.pieces.push(...generated.pieces.map((piece, index) => ({
       ...piece,
       sequenceNumber: snapshot.pieces.length + index + 1,
       status: 'active',

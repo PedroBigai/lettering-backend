@@ -15,6 +15,7 @@ import type {
 import { applyGravity, findLandingRow } from '../game/boardEngine';
 import { findFirstWord } from '../game/wordDetector';
 import { ApiError } from '../../server/errors';
+import { parseWordCycle, registerCycleSuccess } from '../game/wordCycle';
 
 type MatchRow = RowDataPacket & {
   id: string;
@@ -35,6 +36,7 @@ type MatchRow = RowDataPacket & {
   board_version: number;
   game_time_ms: number;
   paused_at: Date | null;
+  word_cycle: unknown;
 };
 
 type PieceRow = RowDataPacket & {
@@ -80,6 +82,7 @@ type LockedPlayerRow = RowDataPacket & {
   lives_remaining: number;
   joined_at: Date;
   game_time_ms: number;
+  word_cycle: unknown;
 };
 
 type HistoryRow = RowDataPacket & {
@@ -111,6 +114,27 @@ function parseBoardCells(value: unknown): BoardCell[] {
 
 export class MysqlMatchRepository implements MatchRepository {
   constructor(private readonly database: Pool) {}
+
+  async listDueWords(userId: string, theme: string): Promise<string[]> {
+    const [rows] = await this.database.execute<(RowDataPacket & { normalized_word: string })[]>(
+      `SELECT normalized_word FROM user_word_progress
+       WHERE user_id = ? AND theme = ? AND due_at <= CURRENT_TIMESTAMP(3)
+       ORDER BY due_at, level LIMIT 20`,
+      [userId, theme],
+    );
+    return rows.map((row) => row.normalized_word.toUpperCase());
+  }
+
+  async listWordSuccesses(userId: string, theme: string): Promise<Map<string, number>> {
+    const [rows] = await this.database.execute<
+      (RowDataPacket & { normalized_word: string; successes: number })[]
+    >(
+      `SELECT normalized_word, successes FROM user_word_progress
+       WHERE user_id = ? AND theme = ?`,
+      [userId, theme],
+    );
+    return new Map(rows.map(row => [row.normalized_word.toUpperCase(), Number(row.successes)]));
+  }
 
   async createSoloMatch(input: NewMatch): Promise<void> {
     const connection = await this.database.getConnection();
@@ -147,9 +171,10 @@ export class MysqlMatchRepository implements MatchRepository {
       await connection.execute(
         `INSERT INTO match_players
           (id, match_id, user_id, status, score, level_reached, lives_remaining,
-           board_version, game_time_ms, joined_at)
-         VALUES (?, ?, ?, 'playing', 0, 1, ?, 0, 0, CURRENT_TIMESTAMP(3))`,
-        [input.playerId, input.matchId, input.userId, initialLives],
+           board_version, word_cycle, game_time_ms, joined_at)
+         VALUES (?, ?, ?, 'playing', 0, 1, ?, 0, ?, 0, CURRENT_TIMESTAMP(3))`,
+        [input.playerId, input.matchId, input.userId, initialLives,
+          input.wordCycle ? JSON.stringify(input.wordCycle) : null],
       );
 
       for (const piece of input.pieces) {
@@ -186,7 +211,7 @@ export class MysqlMatchRepository implements MatchRepository {
                   - mp.total_paused_ms)
                 ELSE mp.game_time_ms
               END AS game_time_ms,
-              mp.paused_at
+              mp.paused_at, mp.word_cycle
        FROM matches m
        INNER JOIN match_players mp ON mp.match_id = m.id
        WHERE m.id = ? AND mp.user_id = ?
@@ -244,6 +269,7 @@ export class MysqlMatchRepository implements MatchRepository {
         boardVersion: match.board_version,
         gameTimeMs: match.game_time_ms,
         pausedAt: match.paused_at,
+        wordCycle: parseWordCycle(match.word_cycle),
       },
       pieces: pieceRows[0].map((piece) => ({
         id: piece.id,
@@ -283,7 +309,7 @@ export class MysqlMatchRepository implements MatchRepository {
         `SELECT mp.id AS player_id, m.mode, m.theme, m.target_word_count, m.status AS match_status,
                 mp.status AS player_status, m.board_rows, m.board_columns,
                 m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
-                mp.joined_at, mp.game_time_ms
+                mp.joined_at, mp.game_time_ms, mp.word_cycle
          FROM matches m
          INNER JOIN match_players mp ON mp.match_id = m.id
          WHERE m.id = ? AND mp.user_id = ?
@@ -419,10 +445,13 @@ export class MysqlMatchRepository implements MatchRepository {
       const gameOver = livesRemaining === 0;
 
       if (!gameOver) {
-        const nextPieces = input.createNextPieces(
+        const generated = input.createNextPieces(
           player.mode,
           player.theme,
           Math.floor(chosen.sequence_number / 4),
+          parseWordCycle(player.word_cycle),
+          lifeLost ? [] : boardAfterPlacement,
+          lifeLost,
         );
         const [sequenceRows] = await connection.execute<
           (RowDataPacket & { max_sequence: number })[]
@@ -432,7 +461,7 @@ export class MysqlMatchRepository implements MatchRepository {
           [player.player_id],
         );
         const firstSequence = sequenceRows[0].max_sequence + 1;
-        for (const [index, piece] of nextPieces.entries()) {
+        for (const [index, piece] of generated.pieces.entries()) {
           await connection.execute(
             `INSERT INTO match_letters
               (id, match_player_id, sequence_number, letter, status,
@@ -441,6 +470,7 @@ export class MysqlMatchRepository implements MatchRepository {
             [piece.id, player.player_id, firstSequence + index, piece.letter],
           );
         }
+        player.word_cycle = generated.wordCycle;
       }
 
       await connection.execute(
@@ -449,7 +479,7 @@ export class MysqlMatchRepository implements MatchRepository {
              game_time_ms = GREATEST(0,
                FLOOR(TIMESTAMPDIFF(MICROSECOND, joined_at, CURRENT_TIMESTAMP(3)) / 1000)
                - total_paused_ms),
-             last_activity_at = CURRENT_TIMESTAMP(3),
+             word_cycle = ?, last_activity_at = CURRENT_TIMESTAMP(3),
              finished_at = CASE WHEN ? = 'game_over' THEN CURRENT_TIMESTAMP(3) ELSE finished_at END
          WHERE id = ?`,
         [
@@ -457,6 +487,7 @@ export class MysqlMatchRepository implements MatchRepository {
           livesRemaining,
           nextBoardVersion,
           gameOver ? 'game_over' : 'playing',
+          player.word_cycle ? JSON.stringify(player.word_cycle) : null,
           gameOver ? 'game_over' : 'playing',
           player.player_id,
         ],
@@ -484,7 +515,6 @@ export class MysqlMatchRepository implements MatchRepository {
               direction: found.direction,
               pointsEarned: found.definition.score,
               translations: found.definition.translations,
-              description: found.definition.description,
               cells: found.cells,
             }
           : null,
@@ -512,7 +542,7 @@ export class MysqlMatchRepository implements MatchRepository {
         `SELECT mp.id AS player_id, m.mode, m.theme, m.target_word_count, m.status AS match_status,
                 mp.status AS player_status, m.board_rows, m.board_columns,
                 m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
-                mp.joined_at, mp.game_time_ms
+                mp.joined_at, mp.game_time_ms, mp.word_cycle
          FROM matches m
          INNER JOIN match_players mp ON mp.match_id = m.id
          WHERE m.id = ? AND mp.user_id = ?
@@ -580,6 +610,11 @@ export class MysqlMatchRepository implements MatchRepository {
       );
       const nextBoardVersion = player.board_version + 1;
       const currentScore = player.score + pendingWord.points_earned;
+      const wordCycle = parseWordCycle(player.word_cycle);
+      const replacement = wordCycle ? await input.replacementWord?.(wordCycle) : undefined;
+      const cycleResult = wordCycle
+        ? registerCycleSuccess(wordCycle, pendingWord.formed_word, replacement)
+        : null;
 
       for (const cell of removedCells) {
         await connection.execute(
@@ -616,6 +651,24 @@ export class MysqlMatchRepository implements MatchRepository {
         'DELETE FROM match_pending_words WHERE match_player_id = ?',
         [player.player_id],
       );
+      if (cycleResult) {
+        const progressTheme = player.theme ?? 'general';
+        const intervals = [0, 10 / 1440, 1, 3, 7];
+        const intervalDays = intervals[cycleResult.nextLevel] ?? 7;
+        await connection.execute(
+          `INSERT INTO user_word_progress
+            (user_id, theme, normalized_word, level, due_at, exposures, successes,
+             last_seen_at, last_success_at)
+           VALUES (?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL ? SECOND), 1, 1,
+             CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3))
+           ON DUPLICATE KEY UPDATE level = LEAST(255, level + 1), due_at = VALUES(due_at),
+             exposures = exposures + 1, successes = successes + 1,
+             last_seen_at = CURRENT_TIMESTAMP(3), last_success_at = CURRENT_TIMESTAMP(3),
+             updated_at = CURRENT_TIMESTAMP(3)`,
+          [input.userId, progressTheme, pendingWord.formed_word.toLowerCase(),
+            cycleResult.nextLevel, Math.round(intervalDays * 86400)],
+        );
+      }
       let completed = false;
       if (player.mode === 'learning' && player.theme && player.target_word_count) {
         const [formedRows] = await connection.execute<
@@ -632,7 +685,7 @@ export class MysqlMatchRepository implements MatchRepository {
       }
       await connection.execute(
         `UPDATE match_players
-         SET score = ?, board_version = ?, status = ?,
+         SET score = ?, board_version = ?, status = ?, word_cycle = ?,
              game_time_ms = GREATEST(0,
                FLOOR(TIMESTAMPDIFF(MICROSECOND, joined_at, CURRENT_TIMESTAMP(3)) / 1000)
                - total_paused_ms),
@@ -644,6 +697,7 @@ export class MysqlMatchRepository implements MatchRepository {
           currentScore,
           nextBoardVersion,
           completed ? 'completed' : 'playing',
+          wordCycle ? JSON.stringify(wordCycle) : null,
           completed,
           player.player_id,
         ],

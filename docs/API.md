@@ -173,7 +173,7 @@ Inicializa um novo jogo com tabuleiro limpo de 10 linhas x 9 colunas, configura 
 | Campo | Tipo | Obrigatório | Padrão | Valores Aceitos / Regras |
 | :--- | :---: | :---: | :---: | :--- |
 | `mode` | string | Não | `"classic"` | `"classic"`, `"learning"`, `"hardcore"` |
-| `theme` | string \| null | Condicional | `null` | Obrigatório se `mode === "learning"`. Aceito em qualquer modo. Valores: `"animals"`, `"objects"`, `"verbs"`, `"food"`, `"places"`, `"adjectives"`, `"colors"`, `"nature"`, `"professions"`. |
+| `theme` | string \| null | Condicional | `null` | Obrigatório se `mode === "learning"`. Aceito em qualquer modo. Valores disponíveis: `"animals"`, `"verbs"`, `"adjectives"`, `"objects"`, `"nouns"`, `"food"` e `"nature"`. |
 | `language` | string | Não | `"en-US"` | `"en-US"` |
 
 #### Comportamento dos Modos:
@@ -233,11 +233,6 @@ Posiciona uma das letras disponíveis em uma das colunas do tabuleiro. O motor d
     "translations": {
       "pt-BR": ["gato"],
       "es-ES": ["gato"]
-    },
-    "description": {
-      "pt-BR": ["Um felino doméstico de pequeno porte."],
-      "en-US": ["A small domesticated carnivorous feline mammal."],
-      "es-ES": ["Un pequeño mamífero felino carnívoro doméstico."]
     },
     "cells": [
       { "row": 9, "column": 2, "letter": "C" },
@@ -413,21 +408,19 @@ O objeto `MatchSnapshot` é o modelo autoritativo central retornado na criação
 
 ---
 
-## 7. Temas Disponíveis (9 Temas)
+## 7. Temas disponíveis
 
-O banco de dados possui **1.050 palavras únicas** distribuídas nos seguintes 9 temas:
+O banco está sendo reconstruído tema por tema. Atualmente possui **600 entradas** em dois temas, correspondentes a 599 palavras inglesas únicas porque `FLY` pertence a ambos:
 
 | Identificador (`theme`) | Descrição | Exemplo de Palavras |
 | :--- | :--- | :--- |
 | `animals` | Animais e fauna | `LION`, `EAGLE`, `DOLPHIN`, `TIGER`, `ZEBRA`, `PENGUIN` |
-| `objects` | Objetos, ferramentas e utensílios | `ANCHOR`, `SWORD`, `HAMMER`, `COMPASS`, `LANTERN`, `MIRROR` |
-| `verbs` | Ações e verbos de movimento | `BOUNCE`, `CHASE`, `DANCE`, `FORGIVE`, `PRAY`, `WHISPER` |
-| `food` | Comidas, frutas, vegetais e pratos | `APPLE`, `BREAD`, `BURRITO`, `CHERRY`, `LASAGNA`, `SUSHI` |
-| `places` | Lugares, cidades e construções | `AIRPORT`, `CASTLE`, `HARBOR`, `MUSEUM`, `PALACE`, `TEMPLE` |
-| `adjectives` | Qualidades e características | `ALERT`, `BRAVE`, `CLEVER`, `CURIOUS`, `HONEST`, `WISE` |
-| `colors` | Cores e tonalidades | `BLACK`, `BLUE`, `BRONZE`, `CRIMSON`, `EMERALD`, `GOLD`, `RED` |
-| `nature` | Natureza, relevos e ecossistemas | `CANYON`, `FOREST`, `GLACIER`, `JUNGLE`, `OCEAN`, `RIVER` |
-| `professions` | Carreiras e ofícios | `ACTOR`, `ASTRONAUT`, `DOCTOR`, `PILOT`, `SCIENTIST`, `WRITER` |
+| `verbs` | Ações e estados | `ACCEPT`, `BUILD`, `LEARN`, `RUN`, `THINK`, `WRITE` |
+| `adjectives` | Qualidades e características | `HAPPY`, `STRONG`, `BEAUTIFUL`, `QUICK`, `CALM`, `YOUNG` |
+| `objects` | Objetos e utensílios cotidianos | `CHAIR`, `KEY`, `PHONE`, `HAMMER`, `BOTTLE`, `UMBRELLA` |
+| `nouns` | Substantivos, conceitos, pessoas e lugares | `LIFE`, `TIME`, `LOVE`, `FAMILY`, `WORLD`, `DREAM` |
+| `food` | Alimentos, culinária e consumo | `APPLE`, `BREAD`, `COOK`, `BAKED`, `SWEET`, `HUNGRY` |
+| `nature` | Animais, plantas, paisagens e fenômenos | `BEAR`, `FOREST`, `RIVER`, `BLOOM`, `WILD`, `STORM` |
 
 ---
 

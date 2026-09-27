@@ -2,14 +2,12 @@ import { z } from 'zod';
 
 export const VALID_THEMES = [
   'animals',
-  'objects',
   'verbs',
-  'food',
-  'places',
   'adjectives',
-  'colors',
+  'objects',
+  'nouns',
+  'food',
   'nature',
-  'professions',
 ] as const;
 
 export type ValidTheme = (typeof VALID_THEMES)[number];
@@ -44,25 +42,28 @@ const localizedTranslationsSchema = z.object({
   'pt-BR': translationListSchema,
   'es-ES': translationListSchema,
 });
-const localizedDescriptionSchema = z.object({
-  'pt-BR': z.string().trim().min(1),
-  'en-US': z.string().trim().min(1),
-  'es-ES': z.string().trim().min(1),
-});
-
 export const wordDefinitionSchema = z.object({
   word: z.string().regex(/^[A-Z]+$/, 'Word must contain only uppercase A-Z characters'),
   translations: localizedTranslationsSchema,
-  description: localizedDescriptionSchema,
   score: z.number().int().positive(),
-});
-
-const themeSchema = z.object({
-  words: z.array(wordDefinitionSchema).min(1),
+  themes: z.array(z.enum(VALID_THEMES)).min(1),
 });
 
 export const wordsFileSchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   language: z.literal('en-US'),
-  general: z.record(z.string().trim().min(1), themeSchema),
+  themes: z.array(z.enum(VALID_THEMES)).length(VALID_THEMES.length),
+  words: z.array(wordDefinitionSchema).min(1),
+}).superRefine(({ words }, context) => {
+  const seen = new Set<string>();
+  words.forEach((entry, index) => {
+    if (seen.has(entry.word)) {
+      context.addIssue({
+        code: 'custom',
+        message: `Duplicate word: ${entry.word}`,
+        path: ['words', index, 'word'],
+      });
+    }
+    seen.add(entry.word);
+  });
 });

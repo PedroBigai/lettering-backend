@@ -34,44 +34,15 @@ export async function loadEnglishContent(): Promise<EnglishContent> {
   const words = new Map<string, WordDefinition>();
   const wordsByTheme = new Map<string, Map<string, WordDefinition>>();
 
-  Object.entries(wordsFile.general).forEach(([themeName, theme]) => {
-    const themeWords = new Map<string, WordDefinition>();
-
-    theme.words.forEach((entry) => {
-      const key = normalizeEnglishWord(entry.word);
-      const definition: WordDefinition = {
-        translations: copyLocalizedLists(entry.translations),
-        description: Object.fromEntries(
-          Object.entries(entry.description).map(([language, value]) => [language, [value]]),
-        ),
-        score: entry.score,
-      };
-
-      themeWords.set(key, definition);
-
-      const current = words.get(key);
-      if (!current) {
-        words.set(key, {
-          translations: copyLocalizedLists(entry.translations),
-          description: Object.fromEntries(
-            Object.entries(entry.description).map(([language, value]) => [language, [value]]),
-          ),
-          score: entry.score,
-        });
-        return;
-      }
-
-      mergeLocalizedLists(current.translations, entry.translations);
-      mergeLocalizedLists(
-        current.description,
-        Object.fromEntries(
-          Object.entries(entry.description).map(([language, value]) => [language, [value]]),
-        ),
-      );
-      current.score = Math.max(current.score, entry.score);
-    });
-
-    wordsByTheme.set(themeName, themeWords);
+  wordsFile.themes.forEach(theme => wordsByTheme.set(theme, new Map()));
+  wordsFile.words.forEach((entry) => {
+    const key = normalizeEnglishWord(entry.word);
+    const definition: WordDefinition = {
+      translations: copyLocalizedLists(entry.translations),
+      score: entry.score,
+    };
+    words.set(key, definition);
+    entry.themes.forEach(theme => wordsByTheme.get(theme)?.set(key, definition));
   });
 
   cachedContent = Object.freeze({

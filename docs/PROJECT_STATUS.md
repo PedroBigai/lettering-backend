@@ -7,8 +7,7 @@ frontend e backend do Lettering.
 
 Lettering é um jogo educacional inspirado em Tetris. O jogador recebe letras,
 escolhe onde posicioná-las em uma matriz e forma palavras inglesas. Uma palavra
-válida é destacada; ao confirmá-la, o jogador recebe pontos, traduções e uma
-descrição.
+válida é destacada; ao confirmá-la, o jogador recebe pontos e traduções.
 
 - matriz de 10 linhas por 9 colunas;
 - palavras-base em inglês;
@@ -101,9 +100,9 @@ frontend/script/data/letters.json
 frontend/script/data/words.json
 ```
 
-Os arquivos equivalentes estão alinhados. Há 98 entradas em 9 temas, equivalentes
-a 89 palavras únicas. Significados repetidos em temas diferentes são combinados
-em memória.
+Os arquivos equivalentes estão alinhados. A reconstrução do vocabulário começou
+pelos temas `animals`, `verbs`, `adjectives`, `objects`, `nouns`, `food` e `nature`, com seus vocabulários em ordem alfabética.
+Novos temas serão adicionados gradualmente.
 
 ```json
 {
@@ -112,17 +111,12 @@ em memória.
     "pt-BR": ["gato", "gata"],
     "es-ES": ["gato"]
   },
-  "description": {
-    "pt-BR": "Um pequeno mamífero doméstico.",
-    "en-US": "A small domesticated mammal.",
-    "es-ES": "Un pequeño mamífero doméstico."
-  },
   "score": 30
 }
 ```
 
-`translations` não possui `en-US`, porque `word` já é a forma inglesa. A
-descrição continua nos três idiomas. Em inglês, o frontend exibe `word`.
+`translations` não possui `en-US`, porque `word` já é a forma inglesa. Em
+inglês, o frontend exibe `word`.
 Os JSONs são validados com Zod na inicialização do backend.
 
 ## 5. Banco MySQL
@@ -288,6 +282,11 @@ na senha devem ser codificados para URL.
 ```bash
 npm install
 npm run migrate
+
+O ciclo espaçado de palavras usa a migration `20260927_011_word_cycle.sql`. Ela persiste
+as cinco palavras ativas em `match_players.word_cycle` e o progresso entre partidas em
+`user_word_progress`. Em produção, execute `npm run build` antes de
+`npm run migrate:production`.
 npm run dev
 npm run build
 npm test
