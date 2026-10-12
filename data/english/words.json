@@ -1935,23 +1935,6 @@
       ]
     },
     {
-      "word": "AM",
-      "translations": {
-        "pt-BR": [
-          "so",
-          "esto"
-        ],
-        "es-ES": [
-          "so",
-          "esto"
-        ]
-      },
-      "score": 20,
-      "themes": [
-        "verbs"
-      ]
-    },
-    {
       "word": "AMAZING",
       "translations": {
         "pt-BR": [
@@ -5030,23 +5013,6 @@
       "themes": [
         "nouns",
         "nature"
-      ]
-    },
-    {
-      "word": "BE",
-      "translations": {
-        "pt-BR": [
-          "so",
-          "esto"
-        ],
-        "es-ES": [
-          "so",
-          "esto"
-        ]
-      },
-      "score": 20,
-      "themes": [
-        "verbs"
       ]
     },
     {
@@ -17912,21 +17878,6 @@
       ]
     },
     {
-      "word": "DO",
-      "translations": {
-        "pt-BR": [
-          "faço"
-        ],
-        "es-ES": [
-          "haco"
-        ]
-      },
-      "score": 20,
-      "themes": [
-        "verbs"
-      ]
-    },
-    {
       "word": "DOCTOR",
       "translations": {
         "pt-BR": [
@@ -25094,21 +25045,6 @@
       ]
     },
     {
-      "word": "GO",
-      "translations": {
-        "pt-BR": [
-          "o"
-        ],
-        "es-ES": [
-          "o"
-        ]
-      },
-      "score": 20,
-      "themes": [
-        "verbs"
-      ]
-    },
-    {
       "word": "GOAL",
       "translations": {
         "pt-BR": [
@@ -29676,23 +29612,6 @@
         ]
       },
       "score": 50,
-      "themes": [
-        "verbs"
-      ]
-    },
-    {
-      "word": "IS",
-      "translations": {
-        "pt-BR": [
-          "se",
-          "esta"
-        ],
-        "es-ES": [
-          "se",
-          "esta"
-        ]
-      },
-      "score": 20,
       "themes": [
         "verbs"
       ]
@@ -37403,23 +37322,6 @@
       "score": 40,
       "themes": [
         "verbs"
-      ]
-    },
-    {
-      "word": "OX",
-      "translations": {
-        "pt-BR": [
-          "boi"
-        ],
-        "es-ES": [
-          "buey"
-        ]
-      },
-      "score": 20,
-      "themes": [
-        "nouns",
-        "animals",
-        "nature"
       ]
     },
     {

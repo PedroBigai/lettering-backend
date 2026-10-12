@@ -27,3 +27,13 @@ test('flashcard commands reject client scheduling values and invalid ratings', (
   assert.equal(flashcardActionSchema.safeParse({ ...input, rating: 'correct' }).success, false);
   assert.equal(flashcardActionSchema.safeParse({ ...input, version: -1 }).success, false);
 });
+
+test('flashcard shop commands validate publishing, likes and imports', () => {
+  const id = 'b9b7fa6d-9d8d-445b-a30b-0ed887c97c9e';
+  const sourceDeckId = 'b9b7fa6d-9d8d-445b-a30b-0ed887c97c9f';
+  assert.equal(flashcardActionSchema.safeParse({ action: 'publishDeck', id }).success, true);
+  assert.equal(flashcardActionSchema.safeParse({ action: 'unpublishDeck', id }).success, true);
+  assert.equal(flashcardActionSchema.safeParse({ action: 'toggleDeckLike', id }).success, true);
+  assert.equal(flashcardActionSchema.safeParse({ action: 'importShopDeck', id, sourceDeckId }).success, true);
+  assert.equal(flashcardActionSchema.safeParse({ action: 'importShopDeck', id, sourceDeckId: 'invalid' }).success, false);
+});

@@ -26,6 +26,7 @@ type UserRow = RowDataPacket & {
   username: string;
   email: string;
   password_hash: string;
+  total_xp: number | string;
   created_at: Date;
   updated_at: Date;
 };
@@ -36,6 +37,7 @@ function mapUser(row: UserRow): UserRecord {
     username: row.username,
     email: row.email,
     passwordHash: row.password_hash,
+    totalXp: Number(row.total_xp),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -46,7 +48,7 @@ export class MysqlUserRepository implements UserRepository {
 
   async findById(id: string): Promise<UserRecord | undefined> {
     const [rows] = await this.database.execute<UserRow[]>(
-      `SELECT id, username, email, password_hash, created_at, updated_at
+      `SELECT id, username, email, password_hash, total_xp, created_at, updated_at
        FROM users WHERE id = ? LIMIT 1`,
       [id],
     );
@@ -55,7 +57,7 @@ export class MysqlUserRepository implements UserRepository {
 
   async findByEmail(email: string): Promise<UserRecord | undefined> {
     const [rows] = await this.database.execute<UserRow[]>(
-      `SELECT id, username, email, password_hash, created_at, updated_at
+      `SELECT id, username, email, password_hash, total_xp, created_at, updated_at
        FROM users WHERE email = ? LIMIT 1`,
       [email],
     );
@@ -64,7 +66,7 @@ export class MysqlUserRepository implements UserRepository {
 
   async findByUsername(username: string): Promise<UserRecord | undefined> {
     const [rows] = await this.database.execute<UserRow[]>(
-      `SELECT id, username, email, password_hash, created_at, updated_at
+      `SELECT id, username, email, password_hash, total_xp, created_at, updated_at
        FROM users WHERE username = ? LIMIT 1`,
       [username],
     );

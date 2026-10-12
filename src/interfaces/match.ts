@@ -2,16 +2,20 @@ import type { z } from 'zod';
 import type {
   createMatchSchema,
   confirmWordSchema,
+  usePowerSchema,
   matchHistoryQuerySchema,
   placePieceSchema,
   rankingQuerySchema,
 } from '../schemas/matchSchemas';
 import type { BoardCell, MovedCell, WordDefinition } from './game';
 import type { WordCycle } from '../modules/game/wordCycle';
+import type { GameplayState, PowerType } from '../modules/game/powerUps';
+import type { ProgressionAward } from '../modules/game/progression';
 
 export type CreateMatchInput = z.infer<typeof createMatchSchema>;
 export type PlacePieceInput = z.infer<typeof placePieceSchema>;
 export type ConfirmWordInput = z.infer<typeof confirmWordSchema>;
+export type UsePowerInput = z.infer<typeof usePowerSchema>;
 export type MatchHistoryQuery = z.infer<typeof matchHistoryQuerySchema>;
 export type RankingQuery = z.infer<typeof rankingQuerySchema>;
 
@@ -37,6 +41,7 @@ export interface MatchPlayerSnapshot {
   gameTimeMs: number;
   pausedAt: Date | null;
   wordCycle: WordCycle | null;
+  gameplayState: GameplayState;
 }
 
 export interface MatchPieceSnapshot {
@@ -123,6 +128,7 @@ export interface PlacePieceResult {
   lifeLost: boolean;
   livesRemaining: number;
   gameOver: boolean;
+  progressionAward: ProgressionAward | null;
 }
 
 export interface ConfirmWordRecord {
@@ -145,6 +151,26 @@ export interface ConfirmWordResult {
   movedCells: MovedCell[];
   currentScore: number;
   completed: boolean;
+  progressionAward: ProgressionAward | null;
+  comboMultiplier: number;
+  powerAwarded: PowerType | null;
+  gameplayState: GameplayState;
+}
+
+export interface UsePowerRecord {
+  matchId: string;
+  userId: string;
+  boardVersion: number;
+  type: PowerType;
+  targetIndex?: number;
+}
+
+export interface UsePowerResult {
+  boardVersion: number;
+  removedCells: BoardCell[];
+  movedCells: MovedCell[];
+  clearedLetter: string | null;
+  gameplayState: GameplayState;
 }
 
 export interface MatchRepository {
@@ -154,6 +180,7 @@ export interface MatchRepository {
   findSnapshot(matchId: string, userId: string): Promise<MatchSnapshotRecord | undefined>;
   placePiece(input: PlacePieceRecord): Promise<PlacePieceResult>;
   confirmWord(input: ConfirmWordRecord): Promise<ConfirmWordResult>;
+  usePower(input: UsePowerRecord): Promise<UsePowerResult>;
   leaveMatch(matchId: string, userId: string): Promise<void>;
   setPaused(matchId: string, userId: string, paused: boolean): Promise<void>;
   listByUser(userId: string, limit: number, offset: number): Promise<MatchHistoryPage>;
@@ -222,5 +249,6 @@ export interface MatchSnapshot {
     foundWords: MatchWordResultSnapshot[];
     pendingWord: FoundWordResult | null;
     wordCycle: WordCycle | null;
+    gameplayState: GameplayState;
   };
 }

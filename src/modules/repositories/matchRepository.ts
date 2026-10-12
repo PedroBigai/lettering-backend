@@ -11,11 +11,23 @@ import type {
   PlacePieceResult,
   RankingQuery,
   RankingResult,
+  UsePowerRecord,
+  UsePowerResult,
 } from '../../interfaces/match';
 import { applyGravity, findLandingRow } from '../game/boardEngine';
 import { findFirstWord } from '../game/wordDetector';
 import { ApiError } from '../../server/errors';
 import { parseWordCycle, registerCycleSuccess } from '../game/wordCycle';
+import {
+  awardPower,
+  findFullestLine,
+  findMostFrequentLetter,
+  parseGameplayState,
+  registerCombo,
+  releasePendingPower,
+} from '../game/powerUps';
+import type { ProgressionAward } from '../game/progression';
+import { awardMatchProgression } from './progressionRepository';
 
 type MatchRow = RowDataPacket & {
   id: string;
@@ -37,6 +49,7 @@ type MatchRow = RowDataPacket & {
   game_time_ms: number;
   paused_at: Date | null;
   word_cycle: unknown;
+  gameplay_state: unknown;
 };
 
 type PieceRow = RowDataPacket & {
@@ -82,7 +95,9 @@ type LockedPlayerRow = RowDataPacket & {
   lives_remaining: number;
   joined_at: Date;
   game_time_ms: number;
+  total_paused_ms: number;
   word_cycle: unknown;
+  gameplay_state: unknown;
 };
 
 type HistoryRow = RowDataPacket & {
@@ -171,8 +186,8 @@ export class MysqlMatchRepository implements MatchRepository {
       await connection.execute(
         `INSERT INTO match_players
           (id, match_id, user_id, status, score, level_reached, lives_remaining,
-           board_version, word_cycle, game_time_ms, joined_at)
-         VALUES (?, ?, ?, 'playing', 0, 1, ?, 0, ?, 0, CURRENT_TIMESTAMP(3))`,
+           board_version, word_cycle, gameplay_state, game_time_ms, joined_at)
+         VALUES (?, ?, ?, 'playing', 0, 1, ?, 0, ?, NULL, 0, CURRENT_TIMESTAMP(3))`,
         [input.playerId, input.matchId, input.userId, initialLives,
           input.wordCycle ? JSON.stringify(input.wordCycle) : null],
       );
@@ -211,7 +226,7 @@ export class MysqlMatchRepository implements MatchRepository {
                   - mp.total_paused_ms)
                 ELSE mp.game_time_ms
               END AS game_time_ms,
-              mp.paused_at, mp.word_cycle
+              mp.paused_at, mp.word_cycle, mp.gameplay_state
        FROM matches m
        INNER JOIN match_players mp ON mp.match_id = m.id
        WHERE m.id = ? AND mp.user_id = ?
@@ -270,6 +285,7 @@ export class MysqlMatchRepository implements MatchRepository {
         gameTimeMs: match.game_time_ms,
         pausedAt: match.paused_at,
         wordCycle: parseWordCycle(match.word_cycle),
+        gameplayState: parseGameplayState(match.gameplay_state),
       },
       pieces: pieceRows[0].map((piece) => ({
         id: piece.id,
@@ -309,7 +325,8 @@ export class MysqlMatchRepository implements MatchRepository {
         `SELECT mp.id AS player_id, m.mode, m.theme, m.target_word_count, m.status AS match_status,
                 mp.status AS player_status, m.board_rows, m.board_columns,
                 m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
-                mp.joined_at, mp.game_time_ms, mp.word_cycle
+                mp.joined_at, mp.game_time_ms, mp.total_paused_ms,
+                mp.word_cycle, mp.gameplay_state
          FROM matches m
          INNER JOIN match_players mp ON mp.match_id = m.id
          WHERE m.id = ? AND mp.user_id = ?
@@ -492,7 +509,14 @@ export class MysqlMatchRepository implements MatchRepository {
           player.player_id,
         ],
       );
+      let progressionAward: ProgressionAward | null = null;
       if (gameOver) {
+        progressionAward = await awardMatchProgression(
+          connection,
+          player.player_id,
+          input.userId,
+          currentScore,
+        );
         await connection.execute(
           `UPDATE match_letters SET status = 'discarded'
            WHERE match_player_id = ? AND status = 'active'`,
@@ -524,6 +548,7 @@ export class MysqlMatchRepository implements MatchRepository {
         lifeLost,
         livesRemaining,
         gameOver,
+        progressionAward,
       };
     } catch (error) {
       await rollback(connection);
@@ -542,7 +567,8 @@ export class MysqlMatchRepository implements MatchRepository {
         `SELECT mp.id AS player_id, m.mode, m.theme, m.target_word_count, m.status AS match_status,
                 mp.status AS player_status, m.board_rows, m.board_columns,
                 m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
-                mp.joined_at, mp.game_time_ms, mp.word_cycle
+                mp.joined_at, mp.game_time_ms, mp.total_paused_ms,
+                mp.word_cycle, mp.gameplay_state
          FROM matches m
          INNER JOIN match_players mp ON mp.match_id = m.id
          WHERE m.id = ? AND mp.user_id = ?
@@ -609,12 +635,23 @@ export class MysqlMatchRepository implements MatchRepository {
         player.board_columns,
       );
       const nextBoardVersion = player.board_version + 1;
-      const currentScore = player.score + pendingWord.points_earned;
+      const gameTimeMs = Math.max(
+        0,
+        Date.now() - player.joined_at.getTime() - Number(player.total_paused_ms || 0),
+      );
+      const gameplayState = parseGameplayState(player.gameplay_state);
+      const comboMultiplier = registerCombo(gameplayState, gameTimeMs);
+      const awardedPoints = pendingWord.points_earned * comboMultiplier;
+      const currentScore = player.score + awardedPoints;
       const wordCycle = parseWordCycle(player.word_cycle);
+      const isChosenWord = wordCycle?.activeWords.some(
+        (item) => item.word === pendingWord.formed_word.toUpperCase(),
+      ) ?? false;
       const replacement = wordCycle ? await input.replacementWord?.(wordCycle) : undefined;
       const cycleResult = wordCycle
         ? registerCycleSuccess(wordCycle, pendingWord.formed_word, replacement)
         : null;
+      const powerAwarded = isChosenWord && cycleResult ? awardPower(gameplayState) : null;
 
       for (const cell of removedCells) {
         await connection.execute(
@@ -641,7 +678,7 @@ export class MysqlMatchRepository implements MatchRepository {
         [
           player.player_id,
           pendingWord.formed_word,
-          pendingWord.points_earned,
+          awardedPoints,
           nextBoardVersion,
           JSON.stringify(removedCells),
           player.player_id,
@@ -653,15 +690,15 @@ export class MysqlMatchRepository implements MatchRepository {
       );
       if (cycleResult) {
         const progressTheme = player.theme ?? 'general';
-        const intervals = [0, 10 / 1440, 1, 3, 7];
-        const intervalDays = intervals[cycleResult.nextLevel] ?? 7;
+        const intervals = [0, 10 / 1440, 1, 3, 7, 14, 30];
+        const intervalDays = intervals[cycleResult.nextLevel] ?? 30;
         await connection.execute(
           `INSERT INTO user_word_progress
             (user_id, theme, normalized_word, level, due_at, exposures, successes,
              last_seen_at, last_success_at)
            VALUES (?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL ? SECOND), 1, 1,
              CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3))
-           ON DUPLICATE KEY UPDATE level = LEAST(255, level + 1), due_at = VALUES(due_at),
+           ON DUPLICATE KEY UPDATE level = VALUES(level), due_at = VALUES(due_at),
              exposures = exposures + 1, successes = successes + 1,
              last_seen_at = CURRENT_TIMESTAMP(3), last_success_at = CURRENT_TIMESTAMP(3),
              updated_at = CURRENT_TIMESTAMP(3)`,
@@ -685,7 +722,7 @@ export class MysqlMatchRepository implements MatchRepository {
       }
       await connection.execute(
         `UPDATE match_players
-         SET score = ?, board_version = ?, status = ?, word_cycle = ?,
+         SET score = ?, board_version = ?, status = ?, word_cycle = ?, gameplay_state = ?,
              game_time_ms = GREATEST(0,
                FLOOR(TIMESTAMPDIFF(MICROSECOND, joined_at, CURRENT_TIMESTAMP(3)) / 1000)
                - total_paused_ms),
@@ -698,11 +735,19 @@ export class MysqlMatchRepository implements MatchRepository {
           nextBoardVersion,
           completed ? 'completed' : 'playing',
           wordCycle ? JSON.stringify(wordCycle) : null,
+          JSON.stringify(gameplayState),
           completed,
           player.player_id,
         ],
       );
+      let progressionAward: ProgressionAward | null = null;
       if (completed) {
+        progressionAward = await awardMatchProgression(
+          connection,
+          player.player_id,
+          input.userId,
+          currentScore,
+        );
         await connection.execute(
           `UPDATE matches SET status = 'finished', finished_at = CURRENT_TIMESTAMP(3)
            WHERE id = ?`,
@@ -721,13 +766,118 @@ export class MysqlMatchRepository implements MatchRepository {
         confirmedWord: {
           word: pendingWord.formed_word,
           direction: pendingWord.direction,
-          pointsEarned: pendingWord.points_earned,
+          pointsEarned: awardedPoints,
           cells: removedCells,
         },
         removedCells,
         movedCells: gravity.movedCells,
         currentScore,
         completed,
+        progressionAward,
+        comboMultiplier,
+        powerAwarded,
+        gameplayState,
+      };
+    } catch (error) {
+      await rollback(connection);
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async usePower(input: UsePowerRecord): Promise<UsePowerResult> {
+    const connection = await this.database.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [playerRows] = await connection.execute<LockedPlayerRow[]>(
+        `SELECT mp.id AS player_id, m.mode, m.theme, m.target_word_count, m.status AS match_status,
+                mp.status AS player_status, m.board_rows, m.board_columns,
+                m.min_word_length, mp.board_version, mp.score, mp.lives_remaining,
+                mp.joined_at, mp.game_time_ms, mp.total_paused_ms,
+                mp.word_cycle, mp.gameplay_state
+         FROM matches m
+         INNER JOIN match_players mp ON mp.match_id = m.id
+         WHERE m.id = ? AND mp.user_id = ?
+         LIMIT 1 FOR UPDATE`,
+        [input.matchId, input.userId],
+      );
+      const player = playerRows[0];
+      if (!player) throw new ApiError(404, 'MATCH_NOT_FOUND', 'Match not found');
+      if (player.match_status !== 'in_progress' || player.player_status !== 'playing') {
+        throw new ApiError(409, 'MATCH_NOT_ACTIVE', 'Match is not active');
+      }
+      if (player.board_version !== input.boardVersion) {
+        throw new ApiError(409, 'STALE_BOARD_VERSION', 'Board version is outdated');
+      }
+      const gameplayState = parseGameplayState(player.gameplay_state);
+      if (gameplayState.powers[input.type] < 1) {
+        throw new ApiError(409, 'POWER_NOT_AVAILABLE', 'Power is not available');
+      }
+      const [pieceRows] = await connection.execute<PieceRow[]>(
+        `SELECT id, letter, sequence_number, status, row_position, column_position
+         FROM match_letters WHERE match_player_id = ? AND status = 'placed'
+         ORDER BY sequence_number FOR UPDATE`,
+        [player.player_id],
+      );
+      const boardCells: BoardCell[] = pieceRows.map(piece => ({
+        pieceId: piece.id,
+        letter: piece.letter,
+        row: piece.row_position as number,
+        column: piece.column_position as number,
+      }));
+      const targetIndex = input.type === 'clearRow'
+        ? findFullestLine(boardCells, 'row')
+        : input.type === 'clearColumn'
+          ? findFullestLine(boardCells, 'column')
+          : null;
+      const clearedLetter = input.type === 'clearLetter'
+        ? findMostFrequentLetter(boardCells)
+        : null;
+      const removedCells = boardCells.filter(cell => input.type === 'clearAll'
+        || (input.type === 'clearRow' && cell.row === targetIndex)
+        || (input.type === 'clearColumn' && cell.column === targetIndex)
+        || (input.type === 'clearLetter' && cell.letter === clearedLetter));
+      if (!removedCells.length) {
+        throw new ApiError(409, 'POWER_HAS_NO_TARGET', 'Power has no valid target');
+      }
+      gameplayState.powers[input.type] -= 1;
+      releasePendingPower(gameplayState);
+      const removedIds = new Set(removedCells.map(cell => cell.pieceId));
+      const gravity = applyGravity(
+        boardCells.filter(cell => !removedIds.has(cell.pieceId)),
+        player.board_rows,
+        player.board_columns,
+      );
+      for (const cell of removedCells) {
+        await connection.execute(
+          `UPDATE match_letters SET status = 'cleared', row_position = NULL,
+             column_position = NULL, cleared_at = CURRENT_TIMESTAMP(3)
+           WHERE id = ? AND match_player_id = ? AND status = 'placed'`,
+          [cell.pieceId, player.player_id],
+        );
+      }
+      for (const moved of [...gravity.movedCells].sort((a, b) => b.toRow - a.toRow)) {
+        await connection.execute(
+          `UPDATE match_letters SET row_position = ?
+           WHERE id = ? AND match_player_id = ? AND status = 'placed'`,
+          [moved.toRow, moved.pieceId, player.player_id],
+        );
+      }
+      const boardVersion = player.board_version + 1;
+      await connection.execute('DELETE FROM match_pending_words WHERE match_player_id = ?', [player.player_id]);
+      await connection.execute(
+        `UPDATE match_players SET board_version = ?, gameplay_state = ?,
+           last_activity_at = CURRENT_TIMESTAMP(3) WHERE id = ?`,
+        [boardVersion, JSON.stringify(gameplayState), player.player_id],
+      );
+      await connection.commit();
+      return {
+        boardVersion,
+        removedCells,
+        movedCells: gravity.movedCells,
+        clearedLetter,
+        gameplayState,
       };
     } catch (error) {
       await rollback(connection);

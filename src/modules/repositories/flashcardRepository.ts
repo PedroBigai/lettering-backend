@@ -1,5 +1,6 @@
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
-import type { Flashcard, FlashcardDeck, FlashcardSession } from '../../interfaces/flashcards';
+import { randomUUID } from 'node:crypto';
+import type { Flashcard, FlashcardDeck, FlashcardSession, ShopFlashcardDeck, ShopFlashcardDeckDetails } from '../../interfaces/flashcards';
 import type { FlashcardAction } from '../../schemas/flashcardSchemas';
 import { ApiError } from '../../server/errors';
 import { scheduleFlashcard } from '../game/flashcardScheduler';
@@ -24,12 +25,40 @@ export class MysqlFlashcardRepository {
 
   async list(userId: string, db: Db = this.database): Promise<FlashcardDeck[]> {
     const [decks] = await db.execute<RowDataPacket[]>(
-      'SELECT id, name FROM flashcard_decks WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at, id', [userId]);
+      'SELECT id, name, published_at FROM flashcard_decks WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at, id', [userId]);
     const [cards] = await db.execute<RowDataPacket[]>(
       `SELECT c.* FROM flashcard_cards c JOIN flashcard_decks d ON d.id = c.deck_id
        WHERE d.user_id = ? AND d.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.created_at, c.id`, [userId]);
-    return decks.map(deck => ({ id: deck.id, name: deck.name,
+    return decks.map(deck => ({ id: deck.id, name: deck.name, published: Boolean(deck.published_at),
       cards: cards.filter(card => card.deck_id === deck.id).map(toCard) }));
+  }
+
+  async listShop(userId: string): Promise<ShopFlashcardDeck[]> {
+    const [rows] = await this.database.execute<RowDataPacket[]>(`SELECT d.id, d.name, d.user_id, u.username,
+      COUNT(DISTINCT c.id) AS card_count, COUNT(DISTINCT l.user_id) AS likes,
+      MAX(l.user_id = ?) AS liked_by_user
+      FROM flashcard_decks d JOIN users u ON u.id = d.user_id
+      LEFT JOIN flashcard_cards c ON c.deck_id = d.id AND c.deleted_at IS NULL
+      LEFT JOIN flashcard_deck_likes l ON l.deck_id = d.id
+      WHERE d.published_at IS NOT NULL AND d.deleted_at IS NULL
+      GROUP BY d.id, d.name, d.user_id, u.username, d.published_at
+      ORDER BY likes DESC, d.published_at DESC, d.id`, [userId]);
+    return rows.map(row => ({ id: row.id, name: row.name, owner: row.username, ownerId: row.user_id,
+      cardCount: Number(row.card_count), likes: Number(row.likes), likedByUser: Boolean(row.liked_by_user) }));
+  }
+
+  async getShopDeck(userId: string, deckId: string, db: Db = this.database): Promise<ShopFlashcardDeckDetails> {
+    const [decks] = await db.execute<RowDataPacket[]>(`SELECT d.id, d.name, d.user_id, u.username,
+      (SELECT COUNT(*) FROM flashcard_deck_likes l WHERE l.deck_id = d.id) AS likes,
+      EXISTS(SELECT 1 FROM flashcard_deck_likes l WHERE l.deck_id = d.id AND l.user_id = ?) AS liked_by_user
+      FROM flashcard_decks d JOIN users u ON u.id = d.user_id
+      WHERE d.id = ? AND d.published_at IS NOT NULL AND d.deleted_at IS NULL`, [userId, deckId]);
+    if (!decks.length) throw notFound();
+    const [cards] = await db.execute<RowDataPacket[]>(`SELECT word, translation FROM flashcard_cards
+      WHERE deck_id = ? AND deleted_at IS NULL ORDER BY created_at, id`, [deckId]);
+    return { id: decks[0].id, name: decks[0].name, owner: decks[0].username, ownerId: decks[0].user_id,
+      cardCount: cards.length, likes: Number(decks[0].likes), likedByUser: Boolean(decks[0].liked_by_user),
+      cards: cards.map(card => ({ word: card.word, translation: card.translation })) };
   }
 
   async execute(userId: string, input: FlashcardAction) {
@@ -77,8 +106,45 @@ export class MysqlFlashcardRepository {
         case 'deleteDeck':
           await ownedDeck(input.id);
           await abandonSessions();
-          await db.execute('UPDATE flashcard_decks SET deleted_at = ?, updated_at = UTC_TIMESTAMP(3) WHERE id = ?', [new Date(now), input.id]);
+          await db.execute('UPDATE flashcard_decks SET published_at = NULL, deleted_at = ?, updated_at = UTC_TIMESTAMP(3) WHERE id = ?', [new Date(now), input.id]);
           break;
+        case 'publishDeck': {
+          await ownedDeck(input.id);
+          const [counts] = await db.execute<RowDataPacket[]>(
+            'SELECT COUNT(*) AS total FROM flashcard_cards WHERE deck_id = ? AND deleted_at IS NULL', [input.id]);
+          if (!counts[0].total) throw conflict('An empty deck cannot be published');
+          await db.execute('UPDATE flashcard_decks SET published_at = COALESCE(published_at, ?), updated_at = UTC_TIMESTAMP(3) WHERE id = ?',
+            [new Date(now), input.id]);
+          break;
+        }
+        case 'unpublishDeck':
+          await ownedDeck(input.id);
+          await db.execute('UPDATE flashcard_decks SET published_at = NULL, updated_at = UTC_TIMESTAMP(3) WHERE id = ?', [input.id]);
+          break;
+        case 'toggleDeckLike': {
+          const [targets] = await db.execute<RowDataPacket[]>(`SELECT user_id FROM flashcard_decks
+            WHERE id = ? AND published_at IS NOT NULL AND deleted_at IS NULL`, [input.id]);
+          if (!targets.length) throw notFound();
+          if (targets[0].user_id === userId) throw conflict('Users cannot like their own deck');
+          const [likes] = await db.execute<RowDataPacket[]>(
+            'SELECT deck_id FROM flashcard_deck_likes WHERE deck_id = ? AND user_id = ?', [input.id, userId]);
+          if (likes.length) await db.execute('DELETE FROM flashcard_deck_likes WHERE deck_id = ? AND user_id = ?', [input.id, userId]);
+          else await db.execute('INSERT INTO flashcard_deck_likes (deck_id, user_id, created_at) VALUES (?, ?, ?)',
+            [input.id, userId, new Date(now)]);
+          break;
+        }
+        case 'importShopDeck': {
+          const shared = await this.getShopDeck(userId, input.sourceDeckId, db);
+          await db.execute('INSERT INTO flashcard_decks (id, user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+            [input.id, userId, shared.name, new Date(now), new Date(now)]);
+          for (const card of shared.cards) {
+            await db.execute(`INSERT INTO flashcard_cards
+              (id, deck_id, word, translation, normalized_word, due_at, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [randomUUID(), input.id, card.word, card.translation,
+              card.word.normalize('NFKC').toLowerCase(), new Date(now), new Date(now), new Date(now)]);
+          }
+          break;
+        }
         case 'createCard': {
           await ownedDeck(input.deckId);
           const [counts] = await db.execute<RowDataPacket[]>(

@@ -7,6 +7,7 @@ const {
 } = require('../dist/modules/game/content');
 const {
   lettersFileSchema,
+  wordDefinitionSchema,
   wordsFileSchema,
 } = require('../dist/modules/game/contentSchemas');
 const wordsData = require('../data/english/words.json');
@@ -49,7 +50,7 @@ test('keeps every theme dictionary in alphabetical order', () => {
   assert.deepEqual(nouns, [...nouns].sort());
   assert.deepEqual(food, [...food].sort());
   assert.deepEqual(nature, [...nature].sort());
-  assert.equal(animals.length, 300);
+  assert.equal(animals.length, 299);
   assert.ok(verbs.length > 2_000);
   assert.ok(adjectives.length >= 250);
   assert.ok(objects.length >= 400);
@@ -64,6 +65,7 @@ test('keeps every theme dictionary in alphabetical order', () => {
   assert.equal(objects.at(-1), 'zipper');
   assert.equal(nouns[0], 'aardvark');
   assert.equal(nouns.at(-1), 'zucchini');
+  assert.equal(wordsData.words.every(entry => entry.word.length >= 3), true);
   assert.equal(wordsData.words.length, new Set(wordsData.words.map(entry => entry.word)).size);
   assert.equal(entriesFor('verbs').some(entry => 'forms' in entry), false);
   assert.equal(find('verbs', 'FAIL').score, 40);
@@ -105,6 +107,17 @@ test('requires every target translation locale in word content', () => {
       score: 30,
       themes: ['animals'],
     }],
+  });
+
+  assert.equal(result.success, false);
+});
+
+test('rejects words shorter than three characters', () => {
+  const result = wordDefinitionSchema.safeParse({
+    word: 'OX',
+    translations: { 'pt-BR': ['boi'], 'es-ES': ['buey'] },
+    score: 20,
+    themes: ['animals'],
   });
 
   assert.equal(result.success, false);

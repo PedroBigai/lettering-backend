@@ -43,7 +43,9 @@ const localizedTranslationsSchema = z.object({
   'es-ES': translationListSchema,
 });
 export const wordDefinitionSchema = z.object({
-  word: z.string().regex(/^[A-Z]+$/, 'Word must contain only uppercase A-Z characters'),
+  word: z.string()
+    .min(3, 'Word must contain at least 3 characters')
+    .regex(/^[A-Z]+$/, 'Word must contain only uppercase A-Z characters'),
   translations: localizedTranslationsSchema,
   score: z.number().int().positive(),
   themes: z.array(z.enum(VALID_THEMES)).min(1),

@@ -13,6 +13,7 @@ import type {
 import type { UserRecord, UserRepository } from '../interfaces/user';
 import { DuplicateUserError } from './repositories/userRepository';
 import { ApiError } from '../server/errors';
+import { getPlayerProgression } from './game/progression';
 
 function publicUser(user: UserRecord): PublicUser {
   return {
@@ -20,6 +21,7 @@ function publicUser(user: UserRecord): PublicUser {
     username: user.username,
     email: user.email,
     createdAt: user.createdAt,
+    progression: getPlayerProgression(user.totalXp),
   };
 }
 

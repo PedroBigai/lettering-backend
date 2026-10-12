@@ -3,12 +3,17 @@
 Implementado em 14/09/2026. A migration `20260914_010_flashcards.sql` adiciona
 `flashcard_decks`, `flashcard_cards`, `flashcard_sessions` e `flashcard_reviews`.
 O frontend usa a API autenticada para cadastrar, editar, excluir e estudar.
+As migrations `20261011_012_flashcard_deck_sharing.sql` e
+`20261011_016_flashcard_deck_shop.sql` evoluem o compartilhamento inicial para
+uma loja comunitária com publicação, curtidas e importação de cópias.
 
 ## API
 
 Todas as rotas exigem `Authorization: Bearer <token>`.
 
 - `GET /api/v1/flashcards`: `{decks, statistics}`. Cada baralho contém seus cartões.
+- `GET /api/v1/flashcards/shop`: catálogo de decks publicados, ordenado por curtidas.
+- `GET /api/v1/flashcards/shop/:deckId`: detalhes e cartões de um deck publicado.
 - `POST /api/v1/flashcards/actions`: comando abaixo; retorna `{decks, session?}`.
 
 | action | Campos além de action |
@@ -16,6 +21,10 @@ Todas as rotas exigem `Authorization: Bearer <token>`.
 | createDeck | id (UUID), name |
 | renameDeck | id, name |
 | deleteDeck | id |
+| publishDeck | id do deck próprio |
+| unpublishDeck | id do deck próprio |
+| toggleDeckLike | id do deck publicado |
+| importShopDeck | id (UUID do novo deck), sourceDeckId |
 | createCard | id (UUID), deckId, word, translation |
 | editCard | id, deckId, word, translation, version |
 | deleteCard | id, deckId |
@@ -27,6 +36,10 @@ Todas as rotas exigem `Authorization: Bearer <token>`.
 pendente; `all` inclui todos os cartões do baralho ou da visão geral.
 Uma sessão usa uma fila persistida e cada cartão é avaliado uma vez nessa fila.
 Uma nova sessão permite revisar o mesmo cartão novamente.
+
+Um deck precisa ter pelo menos um cartão para ser publicado. Cada usuário pode
+curtir um deck uma vez e não pode curtir o próprio deck. A importação cria novos
+IDs e reinicia o agendamento; a cópia continua privada e independente do original.
 
 As avaliações são `again`, `hard`, `good` e `easy`. No aprendizado inicial,
 os intervalos são 1 minuto, 10 minutos, 1 dia e 4 dias, respectivamente.

@@ -8,6 +8,7 @@ import type {
   RankingQuery,
   MatchSnapshot,
   PlacePieceInput,
+  UsePowerInput,
 } from '../interfaces/match';
 import {
   generateLetterOptions,
@@ -16,7 +17,12 @@ import {
 } from './game/letterGenerator';
 import { getWordsForMatch } from './game/content';
 import { ApiError } from '../server/errors';
-import { createWordCycle, generateCycleLetterOptions } from './game/wordCycle';
+import {
+  ACTIVE_WORD_COUNT,
+  createWordCycle,
+  generateCycleLetterOptions,
+  knowledgeWeightForSuccesses,
+} from './game/wordCycle';
 
 function cycleCandidates(words: ReadonlyMap<string, unknown>): string[] {
   return [...words.keys()]
@@ -30,11 +36,12 @@ function pickCycleWords(
   preferred: readonly string[] = [],
   successes: ReadonlyMap<string, number> = new Map(),
 ): string[] {
-  const candidates = cycleCandidates(words).filter((word) => !excluded.has(word));
+  const candidates = cycleCandidates(words).filter(
+    (word) => !excluded.has(word) && knowledgeWeightForSuccesses(successes.get(word) ?? 0) > 0,
+  );
   const weighted: string[] = [];
   while (candidates.length) {
-    const weights = candidates.map(word => Math.max(1, (10 - word.length) ** 2)
-      * Math.max(0.08, 0.92 ** ((successes.get(word) ?? 0) ** 2)));
+    const weights = candidates.map(word => knowledgeWeightForSuccesses(successes.get(word) ?? 0));
     const total = weights.reduce((sum, weight) => sum + weight, 0);
     let draw = randomInt(total);
     let index = 0;
@@ -43,7 +50,7 @@ function pickCycleWords(
   }
   const valid = new Set(weighted);
   const prioritized = preferred.filter((word) => valid.has(word));
-  return [...new Set([...prioritized, ...weighted])].slice(0, 5);
+  return [...new Set([...prioritized, ...weighted])].slice(0, ACTIVE_WORD_COUNT);
 }
 
 export class MatchModule {
@@ -59,17 +66,14 @@ export class MatchModule {
       ? getWordsForMatch(this.content, input.theme)
       : this.content.words;
     const cycleTheme = input.theme ?? 'general';
-    const [dueWords, wordSuccesses] = input.mode === 'classic' || input.mode === 'learning'
-      ? await Promise.all([
-          this.matches.listDueWords?.(userId, cycleTheme) ?? Promise.resolve([]),
-          this.matches.listWordSuccesses?.(userId, cycleTheme) ?? Promise.resolve(new Map()),
-        ])
-      : [[], new Map<string, number>()];
+    const wordSuccesses = input.mode === 'classic' || input.mode === 'learning'
+      ? await (this.matches.listWordSuccesses?.(userId, cycleTheme) ?? Promise.resolve(new Map()))
+      : new Map<string, number>();
     const selectedCycleWords = pickCycleWords(
-      cycleDictionary, new Set(), dueWords, wordSuccesses,
+      cycleDictionary, new Set(), [], wordSuccesses,
     );
     const wordCycle = (input.mode === 'classic' || input.mode === 'learning')
-      && selectedCycleWords.length === 5
+      && selectedCycleWords.length === ACTIVE_WORD_COUNT
       ? createWordCycle(selectedCycleWords, cycleTheme, wordSuccesses)
       : null;
     const letters = wordCycle
@@ -178,6 +182,7 @@ export class MatchModule {
             }
           : null,
         wordCycle: snapshot.player.wordCycle,
+        gameplayState: snapshot.player.gameplayState,
       },
     };
   }
@@ -202,7 +207,9 @@ export class MatchModule {
             dictionary,
             new Set(wordCycle.activeWords.map(item => item.word)),
           );
-          wordCycle = selected.length === 5 ? createWordCycle(selected, theme ?? 'general') : wordCycle;
+          wordCycle = selected.length === ACTIVE_WORD_COUNT
+            ? createWordCycle(selected, theme ?? 'general')
+            : wordCycle;
         }
         const nextLetters = wordCycle?.schemaVersion === 1
           ? generateCycleLetterOptions(wordCycle, board, this.content.letters, randomInt)
@@ -270,6 +277,22 @@ export class MatchModule {
       board: snapshot.match.board,
       letterOptions: snapshot.match.letterOptions,
       wordCycle: snapshot.match.wordCycle,
+    };
+  }
+
+  async useMatchPower(userId: string, matchId: string, input: UsePowerInput) {
+    const result = await this.matches.usePower({
+      matchId,
+      userId,
+      boardVersion: input.boardVersion,
+      type: input.type,
+      targetIndex: input.targetIndex,
+    });
+    const snapshot = await this.getMatchState(userId, matchId);
+    return {
+      accepted: true,
+      ...result,
+      board: snapshot.match.board,
     };
   }
 

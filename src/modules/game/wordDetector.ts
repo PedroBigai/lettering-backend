@@ -37,7 +37,7 @@ function collectLineWords(
 
 export function findFirstWord(
   cells: readonly BoardCell[],
-  _placedCell: BoardCell,
+  placedCell: BoardCell,
   words: ReadonlyMap<string, WordDefinition>,
   minLength = 3,
 ): FoundWord | undefined {
@@ -53,6 +53,11 @@ export function findFirstWord(
   ));
 
   candidates.sort((first, second) => {
+    const firstUsesPlacedCell = first.cells.some((cell) => cell.pieceId === placedCell.pieceId);
+    const secondUsesPlacedCell = second.cells.some((cell) => cell.pieceId === placedCell.pieceId);
+    if (firstUsesPlacedCell !== secondUsesPlacedCell) {
+      return Number(secondUsesPlacedCell) - Number(firstUsesPlacedCell);
+    }
     if (second.word.length !== first.word.length) return second.word.length - first.word.length;
     return second.multiplier - first.multiplier;
   });

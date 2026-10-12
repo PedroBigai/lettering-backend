@@ -43,6 +43,12 @@ export const confirmWordSchema = z.object({
   boardVersion: z.number().int().nonnegative(),
 });
 
+export const usePowerSchema = z.object({
+  boardVersion: z.number().int().nonnegative(),
+  type: z.enum(['clearRow', 'clearColumn', 'clearLetter', 'clearAll']),
+  targetIndex: z.number().int().min(0).max(9).optional(),
+});
+
 export const matchHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().nonnegative().default(0),

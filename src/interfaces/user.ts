@@ -3,6 +3,7 @@ export interface UserRecord {
   username: string;
   email: string;
   passwordHash: string;
+  totalXp: number;
   createdAt: Date;
   updatedAt: Date;
 }

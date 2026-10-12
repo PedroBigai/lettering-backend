@@ -1,9 +1,25 @@
 import type { BoardCell, LetterDefinition, RandomInt } from '../../interfaces/game';
 import { drawWeightedLetter } from './letterGenerator';
 
-export const ACTIVE_WORD_COUNT = 5;
-export const WORD_DROP_INTERVALS = [0, 4, 10, 22, 46] as const;
-export const WORD_MASTERY_LEVEL = WORD_DROP_INTERVALS.length - 1;
+export const ACTIVE_WORD_COUNT = 3;
+export const WORD_DROP_INTERVALS = [0, 4, 10, 22, 46, 70, 100] as const;
+export const KNOWLEDGE_THRESHOLDS = [0, 1, 5, 10, 15, 20, 25] as const;
+export const KNOWLEDGE_WEIGHTS = [100, 55, 30, 16, 8, 3, 0] as const;
+export const WORD_MASTERY_LEVEL = KNOWLEDGE_THRESHOLDS.length - 1;
+
+export function knowledgeLevelForSuccesses(successes: number): number {
+  const safeSuccesses = Math.max(0, Math.floor(Number(successes) || 0));
+  let level = 0;
+  for (let index = 1; index < KNOWLEDGE_THRESHOLDS.length; index += 1) {
+    if (safeSuccesses < KNOWLEDGE_THRESHOLDS[index]) break;
+    level = index;
+  }
+  return level;
+}
+
+export function knowledgeWeightForSuccesses(successes: number): number {
+  return KNOWLEDGE_WEIGHTS[knowledgeLevelForSuccesses(successes)];
+}
 
 export interface ActiveCycleWord {
   word: string;
@@ -30,7 +46,7 @@ export function createWordCycle(
     dropNumber: 0,
     activeWords: words.slice(0, ACTIVE_WORD_COUNT).map((word, index) => ({
       word: word.toUpperCase(), theme,
-      level: Math.min(WORD_MASTERY_LEVEL, successes.get(word.toUpperCase()) ?? 0),
+      level: knowledgeLevelForSuccesses(successes.get(word.toUpperCase()) ?? 0),
       dueDrop: index, appearances: 0, successes: successes.get(word.toUpperCase()) ?? 0,
     })),
   };
@@ -51,50 +67,35 @@ export function selectFocusWord(cycle: WordCycle): ActiveCycleWord | undefined {
   )[0];
 }
 
-function missingLetters(word: string, board: readonly BoardCell[]): string[] {
-  const counts = new Map<string, number>();
-  board.forEach(({ letter }) => counts.set(letter, (counts.get(letter) ?? 0) + 1));
-  return [...word].filter((letter) => {
-    const count = counts.get(letter) ?? 0;
-    if (count === 0) return true;
-    counts.set(letter, count - 1);
-    return false;
-  });
-}
-
 export function generateCycleLetterOptions(
   cycle: WordCycle,
-  board: readonly BoardCell[],
+  _board: readonly BoardCell[],
   letters: readonly LetterDefinition[],
   randomInt: RandomInt,
 ): string[] {
-  const focus = selectFocusWord(cycle);
-  if (!focus) return [];
+  if (!cycle.activeWords.length) return [];
   const options: string[] = [];
   const add = (letter?: string) => { if (letter && !options.includes(letter)) options.push(letter); };
-  const pick = (values: readonly string[]) => values.length ? values[randomInt(values.length)] : undefined;
-  add(pick(missingLetters(focus.word, board)));
-  const others = cycle.activeWords.filter((item) => item !== focus && item.dueDrop <= cycle.dropNumber);
-  const other = others.length ? others[randomInt(others.length)] : undefined;
-  add(pick([...(other?.word ?? '')]));
-  const available = [...new Set(cycle.activeWords.flatMap((item) => [...item.word]))];
-  add(pick(available));
-  while (options.length < 4) {
-    const candidates = letters.filter(
-      ({ value }) => available.includes(value) && !options.includes(value),
+  const addRandom = (vowelOnly = false) => {
+    const candidates = letters.filter(({ value }) =>
+      !options.includes(value) && (!vowelOnly || 'AEIOU'.includes(value)),
     );
-    if (!candidates.length) break;
-    add(drawWeightedLetter(
-      candidates,
-      randomInt,
-    ));
+    if (candidates.length) add(drawWeightedLetter(candidates, randomInt));
+  };
+
+  const availableWords = [...cycle.activeWords];
+  const selectedWords: ActiveCycleWord[] = [];
+  while (selectedWords.length < 2 && availableWords.length) {
+    selectedWords.push(availableWords.splice(randomInt(availableWords.length), 1)[0]);
   }
-  while (options.length < 4 && available.length) options.push(available[randomInt(available.length)]);
-  if (!options.some((letter) => 'AEIOU'.includes(letter))) {
-    const vowels = available.filter((value) => 'AEIOU'.includes(value));
-    if (vowels.length) options[options.length - 1] = vowels[randomInt(vowels.length)];
+  for (const item of selectedWords) {
+    const candidates = [...new Set(item.word)].filter(letter => !options.includes(letter));
+    if (candidates.length) add(candidates[randomInt(candidates.length)]);
+    item.appearances += 1;
   }
-  focus.appearances += 1;
+  while (options.length < 3) addRandom(!options.some(letter => 'AEIOU'.includes(letter)));
+  while (options.length < 4) addRandom(!options.some(letter => 'AEIOU'.includes(letter)));
+
   cycle.dropNumber += 1;
   for (let index = options.length - 1; index > 0; index -= 1) {
     const other = randomInt(index + 1);
@@ -113,13 +114,13 @@ export function registerCycleSuccess(
   const previousLevel = active.level;
   active.successes += 1;
   const understandingScore = active.successes;
-  active.level = Math.min(WORD_MASTERY_LEVEL, active.successes);
+  active.level = knowledgeLevelForSuccesses(active.successes);
   active.dueDrop = cycle.dropNumber + WORD_DROP_INTERVALS[active.level];
   const mastered = active.level === WORD_MASTERY_LEVEL;
   if (replacement) {
     Object.assign(active, {
       word: replacement.word.toUpperCase(),
-      level: Math.min(WORD_MASTERY_LEVEL, replacement.successes),
+      level: knowledgeLevelForSuccesses(replacement.successes),
       dueDrop: Math.max(...cycle.activeWords.map(item => item.dueDrop)) + 1,
       appearances: 0,
       successes: replacement.successes,
@@ -127,7 +128,7 @@ export function registerCycleSuccess(
   }
   return {
     previousLevel,
-    nextLevel: Math.min(WORD_MASTERY_LEVEL, understandingScore),
+    nextLevel: knowledgeLevelForSuccesses(understandingScore),
     understandingScore,
     mastered,
   };

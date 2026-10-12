@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { WebSocket, RawData } from 'ws';
-import type { Pool } from 'mysql2/promise';
+import type { Pool, RowDataPacket } from 'mysql2/promise';
 import type { AuthModule } from '../authModule';
 import type { EnglishContent } from '../../interfaces/game';
 import { generateRotatingLetterOptions } from '../game/letterGenerator';
+import type { ProgressionAward } from '../game/progression';
+import { awardMatchProgression } from '../repositories/progressionRepository';
 
 export interface VersusClient {
   ws: WebSocket;
@@ -25,6 +27,8 @@ export interface VersusRoom {
   matchSeed: number;
   hostStateVersion: number;
   guestStateVersion: number;
+  hostScore: number;
+  guestScore: number;
 }
 
 const BOARD_ROWS = 10;
@@ -180,6 +184,8 @@ export class VersusManager {
       matchSeed: 0,
       hostStateVersion: -1,
       guestStateVersion: -1,
+      hostScore: 0,
+      guestScore: 0,
     };
 
     client.roomCode = code;
@@ -241,6 +247,8 @@ export class VersusManager {
         matchSeed: 0,
         hostStateVersion: -1,
         guestStateVersion: -1,
+        hostScore: 0,
+        guestScore: 0,
       };
 
       host.roomCode = code;
@@ -282,6 +290,8 @@ export class VersusManager {
     room.matchSeed = Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
     room.hostStateVersion = -1;
     room.guestStateVersion = -1;
+    room.hostScore = 0;
+    room.guestScore = 0;
 
     if (this.database) {
       try {
@@ -349,8 +359,13 @@ export class VersusManager {
     const score = this.toInteger(message.score, 0, 0, 100_000_000);
     const lives = this.toInteger(message.lives, 3, 0, 3);
 
-    if (isHost) room.hostStateVersion = incomingVersion;
-    else room.guestStateVersion = incomingVersion;
+    if (isHost) {
+      room.hostStateVersion = incomingVersion;
+      room.hostScore = score;
+    } else {
+      room.guestStateVersion = incomingVersion;
+      room.guestScore = score;
+    }
 
     const opponent = isHost ? room.guest : room.host;
     if (opponent && opponent.ws.readyState === 1) {
@@ -391,6 +406,10 @@ export class VersusManager {
     room.status = 'finished';
     const opponent = room.host.userId === client.userId ? room.guest : room.host;
     const loserFinalScore = this.toInteger(message.finalScore, 0, 0, 100_000_000);
+    const loserIsHost = room.host.userId === client.userId;
+    if (loserIsHost) room.hostScore = loserFinalScore;
+    else room.guestScore = loserFinalScore;
+    const winnerFinalScore = loserIsHost ? room.guestScore : room.hostScore;
 
     if (opponent && opponent.ws.readyState === 1) {
       this.send(opponent.ws, {
@@ -411,7 +430,17 @@ export class VersusManager {
     });
 
     if (this.database && room.matchId) {
-      void this.finishMatchInDb(room.matchId, opponent?.userId ?? null, client.userId, loserFinalScore);
+      void this.finishMatchInDb(
+        room.matchId,
+        opponent?.userId ?? null,
+        client.userId,
+        winnerFinalScore,
+        loserFinalScore,
+        true,
+      ).then((awards) => {
+        this.sendProgressionAward(opponent, awards.get(opponent?.userId ?? ''));
+        this.sendProgressionAward(client, awards.get(client.userId));
+      });
     }
 
     this.rooms.delete(room.code);
@@ -438,7 +467,7 @@ export class VersusManager {
       }
 
       if (this.database && room.matchId) {
-        void this.finishMatchInDb(room.matchId, opponent?.userId ?? null, client.userId, 0);
+        void this.finishMatchInDb(room.matchId, opponent?.userId ?? null, client.userId, 0, 0);
       }
     }
 
@@ -472,7 +501,7 @@ export class VersusManager {
           }
 
           if (this.database && room.matchId) {
-            void this.finishMatchInDb(room.matchId, opponent?.userId ?? null, client.userId, 0);
+            void this.finishMatchInDb(room.matchId, opponent?.userId ?? null, client.userId, 0, 0);
           }
         }
         this.rooms.delete(client.roomCode);
@@ -486,34 +515,76 @@ export class VersusManager {
     matchId: string,
     winnerUserId: string | null,
     loserUserId: string | null,
+    winnerScore: number,
     loserScore: number,
-  ): Promise<void> {
-    if (!this.database) return;
+    awardXp = false,
+  ): Promise<Map<string, ProgressionAward>> {
+    const awards = new Map<string, ProgressionAward>();
+    if (!this.database) return awards;
+    const connection = await this.database.getConnection().catch((err) => {
+      console.error('Failed to acquire versus match database connection', err);
+      return null;
+    });
+    if (!connection) return awards;
     try {
-      await this.database.execute(
+      await connection.beginTransaction();
+      await connection.execute(
         `UPDATE matches SET status = 'finished', finished_at = CURRENT_TIMESTAMP(3) WHERE id = ?`,
         [matchId],
       );
 
       if (winnerUserId) {
-        await this.database.execute(
+        await connection.execute(
           `UPDATE match_players
-           SET status = 'completed', finished_at = CURRENT_TIMESTAMP(3)
+           SET status = 'completed', score = ?, finished_at = CURRENT_TIMESTAMP(3)
            WHERE match_id = ? AND user_id = ?`,
-          [matchId, winnerUserId],
+          [winnerScore, matchId, winnerUserId],
         );
       }
 
       if (loserUserId) {
-        await this.database.execute(
+        await connection.execute(
           `UPDATE match_players
            SET status = 'game_over', score = ?, lives_remaining = 0, finished_at = CURRENT_TIMESTAMP(3)
            WHERE match_id = ? AND user_id = ?`,
           [loserScore, matchId, loserUserId],
         );
       }
+
+      if (awardXp) {
+        const [players] = await connection.execute<
+          (RowDataPacket & { id: string; user_id: string; score: number })[]
+        >(
+          `SELECT id, user_id, score FROM match_players
+           WHERE match_id = ? ORDER BY user_id FOR UPDATE`,
+          [matchId],
+        );
+        for (const player of players) {
+          const award = await awardMatchProgression(
+            connection,
+            player.id,
+            player.user_id,
+            Number(player.score),
+          );
+          if (award) awards.set(player.user_id, award);
+        }
+      }
+      await connection.commit();
     } catch (err) {
+      await connection.rollback().catch(() => undefined);
       console.error('Failed to update versus match finish in db', err);
+    } finally {
+      connection.release();
+    }
+    return awards;
+  }
+
+  private sendProgressionAward(
+    client: VersusClient | null,
+    award: ProgressionAward | undefined,
+  ): void {
+    if (client && award && client.ws.readyState === 1) {
+      this.send(client.ws, { type: 'progression_awarded', award });
     }
   }
 

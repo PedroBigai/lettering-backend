@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { availabilitySchema, loginSchema, registerSchema } from '../schemas/authSchemas';
+import type { PlayerProgression } from '../modules/game/progression';
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -10,6 +11,7 @@ export interface PublicUser {
   username: string;
   email: string;
   createdAt: Date;
+  progression: PlayerProgression;
 }
 
 export interface AuthenticationResult {

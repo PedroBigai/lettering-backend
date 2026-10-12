@@ -24,7 +24,10 @@ class InMemoryUserRepository {
 class InMemoryMatchRepository {
   constructor() {
     this.snapshots = new Map();
+    this.wordSuccesses = new Map();
   }
+
+  async listWordSuccesses() { return new Map(this.wordSuccesses); }
 
   async createSoloMatch(input) {
     this.snapshots.set(input.matchId, {
@@ -209,7 +212,7 @@ async function register(baseUrl, username, email) {
   return result.body.token;
 }
 
-function createTestApplication() {
+function createTestApplication(cycleWords = []) {
   const users = new InMemoryUserRepository();
   const matches = new InMemoryMatchRepository();
   const authModule = new AuthModule(users, {
@@ -218,13 +221,37 @@ function createTestApplication() {
   });
   const content = {
     letters: [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((value) => ({ value, weight: 1 })),
-    words: new Map(),
+    words: new Map(cycleWords.map((word) => [word, { word }])),
   };
   const matchModule = new MatchModule(matches, content);
   const app = createApp({ authModule, matchModule });
   app.matchesRepo = matches;
   return app;
 }
+
+test('does not show words that reached 25 successes', async () => {
+  const words = [
+    'APPLE', 'BREAD', 'CHAIR', 'DREAM', 'EARTH', 'FLAME',
+    'GRAPE', 'HOUSE', 'LIGHT', 'MOUSE', 'OCEAN', 'PLANT',
+    'QUEEN', 'RIVER', 'STONE', 'TRAIN', 'WATER', 'YOUTH',
+  ];
+  const app = createTestApplication(words);
+  const masteredWords = words.slice(0, 5);
+  app.matchesRepo.wordSuccesses = new Map(masteredWords.map((word) => [word, 25]));
+
+  await withServer(app, async (baseUrl) => {
+    const token = await register(baseUrl, 'cycle_player', 'cycle@example.com');
+    const headers = { authorization: `Bearer ${token}` };
+    const created = await jsonRequest(baseUrl, '/api/v1/matches', {
+      method: 'POST', headers,
+      body: JSON.stringify({ mode: 'classic', language: 'en-US' }),
+    });
+    const selectedWords = created.body.match.wordCycle.activeWords.map((item) => item.word);
+
+    assert.equal(selectedWords.length, 3);
+    assert.equal(selectedWords.some((word) => masteredWords.includes(word)), false);
+  });
+});
 
 test('creates an authenticated 10x9 classic match with four letter choices', async () => {
   const app = createTestApplication();

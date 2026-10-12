@@ -7,6 +7,8 @@ export class FlashcardModule {
     const [decks, statistics] = await Promise.all([this.repository.list(userId), this.repository.statistics(userId)]);
     return { decks, statistics };
   }
+  getShop(userId: string) { return this.repository.listShop(userId); }
+  getShopDeck(userId: string, deckId: string) { return this.repository.getShopDeck(userId, deckId); }
   execute(userId: string, input: FlashcardAction) { return this.repository.execute(userId, input); }
   expireInactiveSessions(timeoutSeconds: number) { return this.repository.expireInactiveSessions(timeoutSeconds); }
 }

@@ -81,6 +81,8 @@ test('registers a user, normalizes email and returns a JWT', async () => {
     assert.equal(response.status, 201);
     assert.equal(body.user.username, 'pedro_1');
     assert.equal(body.user.email, 'pedro@example.com');
+    assert.equal(body.user.progression.level, 1);
+    assert.equal(body.user.progression.totalXp, 0);
     assert.equal(typeof body.token, 'string');
     assert.equal('passwordHash' in body.user, false);
     assert.notEqual(users.users[0].passwordHash, 'secure-password');

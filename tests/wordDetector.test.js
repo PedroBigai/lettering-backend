@@ -58,3 +58,19 @@ test('prioritizes vertical on equal length and ignores gaps and reversed words',
   }));
   assert.equal(findFirstWord(reversed, reversed[2], words, 3), undefined);
 });
+
+test('prioritizes a new overlapping word that uses the latest placed cell', () => {
+  const placed = { pieceId: 'new-c', letter: 'C', row: 7, column: 2 };
+  const cells = [
+    ...[...'CATER'].map((letter, column) => ({
+      pieceId: `old-${column}`, letter, row: 9, column,
+    })),
+    placed,
+    { pieceId: 'shared-a', letter: 'A', row: 8, column: 2 },
+  ];
+
+  const found = findFirstWord(cells, placed, words, 3);
+  assert.equal(found.word, 'cat');
+  assert.equal(found.direction, 'vertical');
+  assert.ok(found.cells.some((cell) => cell.pieceId === 'old-2'));
+});

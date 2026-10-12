@@ -13,9 +13,10 @@ import { postPauseMatch } from '../controllers/postPauseMatch';
 import { postMatchPiece } from '../controllers/postMatchPiece';
 import { postResumeMatch } from '../controllers/postResumeMatch';
 import { postConfirmMatchWord } from '../controllers/postConfirmMatchWord';
+import { postUseMatchPower } from '../controllers/postUseMatchPower';
 import { authenticate } from '../server/middlewares/authenticate';
 import { rateLimit } from '../server/middlewares/rateLimit';
-import { getFlashcards, postFlashcardAction } from '../controllers/flashcards';
+import { getFlashcards, getFlashcardShop, getFlashcardShopDeck, postFlashcardAction } from '../controllers/flashcards';
 
 export function createApiRouter(includeMatchRoutes = true, includeFlashcardRoutes = false) {
   const router = Router();
@@ -41,6 +42,8 @@ export function createApiRouter(includeMatchRoutes = true, includeFlashcardRoute
   router.get('/auth/me', authenticate, getMe);
   if (includeFlashcardRoutes) {
     router.get('/flashcards', authenticate, getFlashcards);
+    router.get('/flashcards/shop', authenticate, getFlashcardShop);
+    router.get('/flashcards/shop/:deckId', authenticate, getFlashcardShopDeck);
     router.post('/flashcards/actions', authenticate, postFlashcardAction);
   }
 
@@ -67,6 +70,11 @@ export function createApiRouter(includeMatchRoutes = true, includeFlashcardRoute
       '/matches/:matchId/words/confirm',
       authenticate,
       postConfirmMatchWord,
+    );
+    router.post(
+      '/matches/:matchId/powers/use',
+      authenticate,
+      postUseMatchPower,
     );
     router.post(
       '/matches/:matchId/leave',
