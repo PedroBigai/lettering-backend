@@ -26,6 +26,17 @@ export function createApiRouter(includeMatchRoutes = true, includeFlashcardRoute
     key: (request) =>
       `${request.ip ?? 'unknown'}:${String(request.body?.email ?? '').toLowerCase()}`,
   });
+  // Caps password guessing across many emails from a single address.
+  const limitLoginPerIp = rateLimit({
+    windowMs: 15 * 60 * 1_000,
+    maxRequests: 50,
+    key: (request) => request.ip ?? 'unknown',
+  });
+  const limitRegister = rateLimit({
+    windowMs: 60 * 60 * 1_000,
+    maxRequests: 10,
+    key: (request) => request.ip ?? 'unknown',
+  });
   const limitMatchCreation = rateLimit({
     windowMs: 60 * 1_000,
     maxRequests: 10,
@@ -36,9 +47,9 @@ export function createApiRouter(includeMatchRoutes = true, includeFlashcardRoute
     maxRequests: 30,
     key: (request) => request.ip ?? 'unknown',
   });
-  router.post('/auth/register', postRegisterUser);
+  router.post('/auth/register', limitRegister, postRegisterUser);
   router.post('/auth/availability', limitAvailabilityChecks, postAuthAvailability);
-  router.post('/auth/login', limitLogin, postAuth);
+  router.post('/auth/login', limitLoginPerIp, limitLogin, postAuth);
   router.get('/auth/me', authenticate, getMe);
   if (includeFlashcardRoutes) {
     router.get('/flashcards', authenticate, getFlashcards);

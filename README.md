@@ -20,7 +20,7 @@ PORT=3000
 DATABASE_URL=mysql://root:SENHA@localhost:3306/lettering
 JWT_SECRET=sua_chave_secreta_super_segura
 JWT_EXPIRES_IN_SECONDS=86400
-CORS_ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:5500
+CORS_ORIGINS=http://localhost:8080,http://127.0.0.1:5500
 ```
 
 ### 3. Instalar Dependências e Rodar Migrações

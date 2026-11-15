@@ -53,6 +53,7 @@ async function bootstrap() {
     matchModule,
     flashcardModule,
     allowedOrigins: env.CORS_ORIGINS,
+    trustProxy: env.TRUST_PROXY,
     enableRequestLogging: true,
   });
   server = app.listen(env.PORT, () => {
@@ -63,10 +64,10 @@ async function bootstrap() {
   });
 
   wss = new WebSocketServer({ server, path: '/ws' });
-  wss.on('connection', (ws, req) => {
-    const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`);
-    const token = url.searchParams.get('token') ?? undefined;
-    versusManager?.handleConnection(ws, token);
+  // Clients authenticate with an `auth` message after connecting; tokens are
+  // never read from the URL so they do not leak into proxy access logs.
+  wss.on('connection', (ws) => {
+    versusManager?.handleConnection(ws);
   });
 }
 

@@ -36,3 +36,19 @@ test('does not award XP again after the match was already claimed', async () => 
   assert.equal(await awardMatchProgression(connection, 'player-1', 'user-1', 100), null);
   assert.equal(calls, 1);
 });
+
+test('uses a fixed XP amount when one is given, ignoring the reported score', async () => {
+  const connection = {
+    async execute(sql) {
+      if (sql.startsWith('UPDATE match_players')) return [{ affectedRows: 1 }];
+      if (sql.startsWith('SELECT total_xp')) return [[{ total_xp: '0' }]];
+      if (sql.startsWith('UPDATE users')) return [{ affectedRows: 1 }];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+
+  const award = await awardMatchProgression(connection, 'player-1', 'user-1', 100_000_000, 20);
+
+  assert.equal(award.xpAwarded, 20);
+  assert.equal(award.progression.totalXp, 20);
+});

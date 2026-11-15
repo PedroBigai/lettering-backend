@@ -7,5 +7,6 @@ export interface AppDependencies {
   matchModule?: MatchModule;
   flashcardModule?: FlashcardModule;
   allowedOrigins?: readonly string[];
+  trustProxy?: boolean | number | string;
   enableRequestLogging?: boolean;
 }

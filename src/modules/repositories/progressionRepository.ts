@@ -10,8 +10,9 @@ export async function awardMatchProgression(
   playerId: string,
   userId: string,
   score: number,
+  fixedXp?: number,
 ): Promise<ProgressionAward | null> {
-  const xpAwarded = calculateMatchXp(score);
+  const xpAwarded = fixedXp ?? calculateMatchXp(score);
   const [claim] = await connection.execute<ResultSetHeader>(
     `UPDATE match_players SET xp_awarded = ?
      WHERE id = ? AND xp_awarded = 0`,

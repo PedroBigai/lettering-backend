@@ -9,6 +9,18 @@ const envSchema = z.object({
   JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().positive().default(3600),
   MATCH_INACTIVITY_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(1800),
   MATCH_CLEANUP_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
+  // Express "trust proxy" setting: true/false, a hop count, or a list such as
+  // "loopback" or "10.0.0.1". Needed so request.ip is the real client behind nginx.
+  TRUST_PROXY: z
+    .string()
+    .default('loopback')
+    .transform((value): boolean | number | string => {
+      const trimmed = value.trim();
+      if (trimmed === 'true') return true;
+      if (trimmed === 'false') return false;
+      if (/^\d+$/.test(trimmed)) return Number(trimmed);
+      return trimmed;
+    }),
   CORS_ORIGINS: z
     .string()
     .default(

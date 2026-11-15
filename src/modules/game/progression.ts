@@ -21,6 +21,10 @@ const LEVEL_XP_STEP = 25;
 const BORDER_LEVELS = 10;
 const PRESTIGE_LEVELS = 100;
 
+// Versus scores are reported by the clients, so XP there is fixed per result
+// instead of derived from a score the server cannot verify.
+export const VERSUS_XP = { win: 60, loss: 20 } as const;
+
 export function calculateMatchXp(score: number): number {
   const safeScore = Number.isFinite(score) ? Math.max(0, Math.floor(score)) : 0;
   return Math.floor(6 * Math.sqrt(safeScore));

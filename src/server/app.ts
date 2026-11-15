@@ -56,6 +56,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   app.locals.flashcardModule = dependencies.flashcardModule;
 
   app.disable('x-powered-by');
+  if (dependencies.trustProxy !== undefined) app.set('trust proxy', dependencies.trustProxy);
   app.use(requestContext(dependencies.enableRequestLogging ?? false));
   app.use((request, response, next) => {
     const origin = request.header('origin');

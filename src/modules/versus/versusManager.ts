@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { WebSocket, RawData } from 'ws';
-import type { Pool, RowDataPacket } from 'mysql2/promise';
+import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 import type { AuthModule } from '../authModule';
 import type { EnglishContent } from '../../interfaces/game';
 import { generateRotatingLetterOptions } from '../game/letterGenerator';
-import type { ProgressionAward } from '../game/progression';
+import { VERSUS_XP, type ProgressionAward } from '../game/progression';
 import { awardMatchProgression } from '../repositories/progressionRepository';
 
 export interface VersusClient {
@@ -34,6 +34,7 @@ export interface VersusRoom {
 const BOARD_ROWS = 10;
 const BOARD_COLUMNS = 9;
 const LETTER_PATTERN = /^[A-Z]$/;
+const AUTH_TIMEOUT_MS = 10_000;
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -47,6 +48,7 @@ function generateRoomCode(): string {
 export class VersusManager {
   private readonly clients = new Map<WebSocket, VersusClient>();
   private readonly rooms = new Map<string, VersusRoom>();
+  private readonly pendingAuth = new WeakSet<WebSocket>();
   private quickMatchQueue: VersusClient | null = null;
   private pingInterval: NodeJS.Timeout | null = null;
 
@@ -63,6 +65,11 @@ export class VersusManager {
       this.authenticateClient(ws, token);
     }
 
+    const authTimeout = setTimeout(() => {
+      if (!this.clients.has(ws)) ws.close(4001, 'Authentication timeout');
+    }, AUTH_TIMEOUT_MS);
+    authTimeout.unref?.();
+
     ws.on('message', (data: RawData) => {
       try {
         const message = JSON.parse(data.toString());
@@ -73,6 +80,7 @@ export class VersusManager {
     });
 
     ws.on('close', () => {
+      clearTimeout(authTimeout);
       this.handleDisconnect(ws);
     });
 
@@ -83,9 +91,16 @@ export class VersusManager {
   }
 
   private authenticateClient(ws: WebSocket, token: string): void {
+    if (this.clients.has(ws) || this.pendingAuth.has(ws)) {
+      this.send(ws, { type: 'error', code: 'ALREADY_AUTHENTICATED', message: 'Already authenticated' });
+      return;
+    }
+
     try {
       const userId = this.authModule.verifyAuthToken(token);
+      this.pendingAuth.add(ws);
       this.authModule.getAuthenticatedUser(userId).then((user) => {
+        if (ws.readyState !== 1) return;
         const client: VersusClient = {
           ws,
           userId: user.id,
@@ -101,6 +116,8 @@ export class VersusManager {
         });
       }).catch(() => {
         this.send(ws, { type: 'error', message: 'User not found' });
+      }).finally(() => {
+        this.pendingAuth.delete(ws);
       });
     } catch {
       this.send(ws, { type: 'error', message: 'Invalid or expired authentication token' });
@@ -294,25 +311,13 @@ export class VersusManager {
     room.guestScore = 0;
 
     if (this.database) {
-      try {
-        await this.database.execute(
-          `INSERT INTO matches
-            (id, language, mode, max_players, status, board_rows, board_columns, min_word_length, started_at)
-           VALUES (?, 'en-US', 'versus', 2, 'in_progress', 10, 9, 3, CURRENT_TIMESTAMP(3))`,
-          [matchId],
-        );
-
-        await this.database.execute(
-          `INSERT INTO match_players
-            (id, match_id, user_id, status, score, lives_remaining, joined_at)
-           VALUES
-            (?, ?, ?, 'playing', 0, 3, CURRENT_TIMESTAMP(3)),
-            (?, ?, ?, 'playing', 0, 3, CURRENT_TIMESTAMP(3))`,
-          [hostPlayerId, matchId, room.host.userId, guestPlayerId, matchId, room.guest!.userId],
-        );
-      } catch (err) {
-        console.error('Failed to create versus match in database', err);
+      const created = await this.createMatchInDb(room, matchId, hostPlayerId, guestPlayerId);
+      if (!created) {
+        this.abortMatchStart(room);
+        return;
       }
+      // A player may have left while the match was being saved.
+      if (this.rooms.get(room.code) !== room || room.status !== 'in_progress') return;
     }
 
     const initialBatch = generateRotatingLetterOptions(this.content.letters, room.matchSeed % 32);
@@ -342,6 +347,56 @@ export class VersusManager {
       initialBatch,
       matchSeed: room.matchSeed,
     });
+  }
+
+  private async createMatchInDb(
+    room: VersusRoom,
+    matchId: string,
+    hostPlayerId: string,
+    guestPlayerId: string,
+  ): Promise<boolean> {
+    if (!this.database || !room.guest) return false;
+    let connection: PoolConnection | null = null;
+    try {
+      connection = await this.database.getConnection();
+      await connection.beginTransaction();
+      await connection.execute(
+        `INSERT INTO matches
+          (id, language, mode, max_players, status, board_rows, board_columns, min_word_length, started_at)
+         VALUES (?, 'en-US', 'versus', 2, 'in_progress', 10, 9, 3, CURRENT_TIMESTAMP(3))`,
+        [matchId],
+      );
+      await connection.execute(
+        `INSERT INTO match_players
+          (id, match_id, user_id, status, score, lives_remaining, joined_at)
+         VALUES
+          (?, ?, ?, 'playing', 0, 3, CURRENT_TIMESTAMP(3)),
+          (?, ?, ?, 'playing', 0, 3, CURRENT_TIMESTAMP(3))`,
+        [hostPlayerId, matchId, room.host.userId, guestPlayerId, matchId, room.guest.userId],
+      );
+      await connection.commit();
+      return true;
+    } catch (err) {
+      await connection?.rollback().catch(() => undefined);
+      console.error('Failed to create versus match in database', err);
+      return false;
+    } finally {
+      connection?.release();
+    }
+  }
+
+  private abortMatchStart(room: VersusRoom): void {
+    const payload = {
+      type: 'error',
+      code: 'MATCH_START_FAILED',
+      message: 'Não foi possível iniciar a partida. Tente novamente.',
+    };
+    for (const player of [room.host, room.guest]) {
+      if (!player) continue;
+      this.send(player.ws, payload);
+      if (player.roomCode === room.code) player.roomCode = null;
+    }
+    this.rooms.delete(room.code);
   }
 
   private handleStateSync(client: VersusClient, message: Record<string, unknown>): void {
@@ -565,6 +620,7 @@ export class VersusManager {
             player.id,
             player.user_id,
             Number(player.score),
+            player.user_id === winnerUserId ? VERSUS_XP.win : VERSUS_XP.loss,
           );
           if (award) awards.set(player.user_id, award);
         }

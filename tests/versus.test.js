@@ -280,3 +280,37 @@ test('versus websocket: quick match pairs two waiting players automatically', as
     server.close();
   }
 });
+
+test('versus websocket: authenticates via auth message and rejects a second auth', async () => {
+  const setup = createTestSetup();
+  const server = setup.server.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  const port = server.address().port;
+
+  try {
+    const reg = await setup.authModule.registerUser({
+      username: 'carol',
+      email: 'carol@example.com',
+      password: 'password123',
+    });
+
+    const client = createClient(port);
+    await new Promise((resolve) => client.ws.once('open', resolve));
+
+    client.send({ type: 'auth', token: reg.token });
+    const authMsg = await client.nextMessage();
+    assert.equal(authMsg.type, 'authenticated');
+    assert.equal(authMsg.username, 'carol');
+
+    client.send({ type: 'auth', token: reg.token });
+    const secondAuth = await client.nextMessage();
+    assert.equal(secondAuth.type, 'error');
+    assert.equal(secondAuth.code, 'ALREADY_AUTHENTICATED');
+
+    client.ws.close();
+  } finally {
+    setup.versusManager.close();
+    setup.wss.close();
+    server.close();
+  }
+});
