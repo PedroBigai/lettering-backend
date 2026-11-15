@@ -12,7 +12,9 @@
     "migrate": "ts-node src/scripts/migrate.ts",
     "migrations": "npm run migrate",
     "migrate:production": "node dist/scripts/migrate.js",
-    "seed:rankings": "ts-node src/scripts/seedRankings.ts"
+    "seed:rankings": "ts-node src/scripts/seedRankings.ts",
+    "seed:community": "ts-node src/scripts/seedCommunityDecks.ts",
+    "seed:community:production": "node dist/scripts/seedCommunityDecks.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
