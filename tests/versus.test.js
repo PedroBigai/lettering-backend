@@ -314,3 +314,51 @@ test('versus websocket: authenticates via auth message and rejects a second auth
     server.close();
   }
 });
+
+test('versus websocket: closes unauthenticated sockets that send oversized messages', async () => {
+  const setup = createTestSetup();
+  const server = setup.server.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  const port = server.address().port;
+
+  try {
+    const client = createClient(port);
+    await new Promise((resolve) => client.ws.once('open', resolve));
+    const closed = new Promise((resolve) => client.ws.once('close', (code) => resolve(code)));
+
+    client.send({ type: 'auth', token: 'x'.repeat(8 * 1024) });
+
+    assert.equal(await closed, 1009);
+  } finally {
+    setup.versusManager.close();
+    setup.wss.close();
+    server.close();
+  }
+});
+
+test('versus websocket: disconnects clients that flood messages', async () => {
+  const setup = createTestSetup();
+  const server = setup.server.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  const port = server.address().port;
+
+  try {
+    const reg = await setup.authModule.registerUser({
+      username: 'flooder',
+      email: 'flooder@example.com',
+      password: 'password123',
+    });
+    const client = createClient(port, reg.token);
+    await new Promise((resolve) => client.ws.once('open', resolve));
+    assert.equal((await client.nextMessage()).type, 'authenticated');
+    const closed = new Promise((resolve) => client.ws.once('close', (code) => resolve(code)));
+
+    for (let index = 0; index < 250; index += 1) client.send({ type: 'ping' });
+
+    assert.equal(await closed, 1008);
+  } finally {
+    setup.versusManager.close();
+    setup.wss.close();
+    server.close();
+  }
+});

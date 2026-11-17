@@ -7,7 +7,7 @@ import { AuthModule } from './modules/authModule';
 import { MatchModule } from './modules/matchModule';
 import { MysqlMatchRepository } from './modules/repositories/matchRepository';
 import { MysqlUserRepository } from './modules/repositories/userRepository';
-import { VersusManager } from './modules/versus/versusManager';
+import { MAX_WS_MESSAGE_BYTES, VersusManager } from './modules/versus/versusManager';
 import { createApp } from './server/app';
 import { FlashcardModule } from './modules/flashcardModule';
 import { MysqlFlashcardRepository } from './modules/repositories/flashcardRepository';
@@ -63,7 +63,9 @@ async function bootstrap() {
     );
   });
 
-  wss = new WebSocketServer({ server, path: '/ws' });
+  // ws defaults to a 100 MiB payload limit; anything larger than ours is rejected
+  // by the library (close code 1009) before it is buffered or parsed.
+  wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_WS_MESSAGE_BYTES });
   // Clients authenticate with an `auth` message after connecting; tokens are
   // never read from the URL so they do not leak into proxy access logs.
   wss.on('connection', (ws) => {

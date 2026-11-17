@@ -35,6 +35,20 @@ const BOARD_ROWS = 10;
 const BOARD_COLUMNS = 9;
 const LETTER_PATTERN = /^[A-Z]$/;
 const AUTH_TIMEOUT_MS = 10_000;
+// Largest message accepted on the whole socket. A full state_sync is well under 2 KB.
+export const MAX_WS_MESSAGE_BYTES = 16 * 1024;
+// Before authentication only a small `auth` message (a JWT) is expected.
+const MAX_UNAUTHENTICATED_MESSAGE_BYTES = 4 * 1024;
+// Per-connection rate limit: messages beyond the soft limit are dropped,
+// and a client that keeps flooding past the hard limit is disconnected.
+const MESSAGE_RATE_WINDOW_MS = 1_000;
+const MESSAGE_RATE_SOFT_LIMIT = 60;
+const MESSAGE_RATE_HARD_LIMIT = 200;
+
+function rawDataByteLength(data: RawData): number {
+  if (Array.isArray(data)) return data.reduce((total, chunk) => total + chunk.length, 0);
+  return data.byteLength;
+}
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -70,7 +84,27 @@ export class VersusManager {
     }, AUTH_TIMEOUT_MS);
     authTimeout.unref?.();
 
+    let rateWindowStartedAt = Date.now();
+    let messagesInWindow = 0;
+
     ws.on('message', (data: RawData) => {
+      const now = Date.now();
+      if (now - rateWindowStartedAt >= MESSAGE_RATE_WINDOW_MS) {
+        rateWindowStartedAt = now;
+        messagesInWindow = 0;
+      }
+      messagesInWindow += 1;
+      if (messagesInWindow > MESSAGE_RATE_HARD_LIMIT) {
+        ws.close(1008, 'Too many messages');
+        return;
+      }
+      if (messagesInWindow > MESSAGE_RATE_SOFT_LIMIT) return;
+
+      if (!this.clients.has(ws) && rawDataByteLength(data) > MAX_UNAUTHENTICATED_MESSAGE_BYTES) {
+        ws.close(1009, 'Message too big');
+        return;
+      }
+
       try {
         const message = JSON.parse(data.toString());
         this.handleMessage(ws, message);
