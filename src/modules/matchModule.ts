@@ -228,11 +228,17 @@ export class MatchModule {
         };
       },
     });
+    // O repositório MySQL já devolve o estado final calculado na transação;
+    // reler a partida custaria mais 4 consultas (inclusive todo o histórico de palavras).
+    const { stateAfterMove, ...move } = result;
+    if (stateAfterMove) {
+      return { accepted: true, ...move, ...stateAfterMove };
+    }
     const snapshot = await this.getMatchState(userId, matchId);
 
     return {
       accepted: true,
-      ...result,
+      ...move,
       board: snapshot.match.board,
       letterOptions: snapshot.match.letterOptions,
       wordCycle: snapshot.match.wordCycle,

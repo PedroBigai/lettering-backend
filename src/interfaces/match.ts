@@ -129,6 +129,17 @@ export interface PlacePieceResult {
   livesRemaining: number;
   gameOver: boolean;
   progressionAward: ProgressionAward | null;
+  /**
+   * Estado do tabuleiro já calculado dentro da transação. Quando presente,
+   * a resposta da jogada é montada a partir dele, sem reler a partida.
+   */
+  stateAfterMove?: PlacePieceState;
+}
+
+export interface PlacePieceState {
+  board: { rows: number; columns: number; version: number; cells: BoardCell[] };
+  letterOptions: Array<{ pieceId: string; letter: string; sequenceNumber: number }>;
+  wordCycle: WordCycle | null;
 }
 
 export interface ConfirmWordRecord {

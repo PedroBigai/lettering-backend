@@ -398,17 +398,15 @@ export class MysqlMatchRepository implements MatchRepository {
         row: landingRow,
         column: input.column,
       };
+      // Uma única UPDATE coloca a peça escolhida e descarta as outras opções.
       await connection.execute(
         `UPDATE match_letters
-         SET status = 'placed', row_position = ?, column_position = ?, placed_at = CURRENT_TIMESTAMP(3)
-         WHERE id = ?`,
-        [landingRow, input.column, chosen.id],
-      );
-      await connection.execute(
-        `UPDATE match_letters
-         SET status = 'discarded'
-         WHERE match_player_id = ? AND status = 'active' AND id <> ?`,
-        [player.player_id, chosen.id],
+         SET status = IF(id = ?, 'placed', 'discarded'),
+             row_position = IF(id = ?, ?, row_position),
+             column_position = IF(id = ?, ?, column_position),
+             placed_at = IF(id = ?, CURRENT_TIMESTAMP(3), placed_at)
+         WHERE match_player_id = ? AND status = 'active'`,
+        [chosen.id, chosen.id, landingRow, chosen.id, input.column, chosen.id, player.player_id],
       );
 
       const boardAfterPlacement = [...boardCells, placedPiece];
@@ -460,6 +458,7 @@ export class MysqlMatchRepository implements MatchRepository {
       }
 
       const gameOver = livesRemaining === 0;
+      let nextLetterOptions: Array<{ pieceId: string; letter: string; sequenceNumber: number }> = [];
 
       if (!gameOver) {
         const generated = input.createNextPieces(
@@ -470,21 +469,26 @@ export class MysqlMatchRepository implements MatchRepository {
           lifeLost ? [] : boardAfterPlacement,
           lifeLost,
         );
-        const [sequenceRows] = await connection.execute<
-          (RowDataPacket & { max_sequence: number })[]
-        >(
-          `SELECT COALESCE(MAX(sequence_number), 0) AS max_sequence
-           FROM match_letters WHERE match_player_id = ?`,
-          [player.player_id],
-        );
-        const firstSequence = sequenceRows[0].max_sequence + 1;
-        for (const [index, piece] of generated.pieces.entries()) {
+        // As opções ativas são sempre o último lote gerado, então a maior
+        // sequência já está entre as linhas lidas acima (o UNIQUE em
+        // (match_player_id, sequence_number) recusaria qualquer colisão).
+        const firstSequence = pieceRows.reduce(
+          (max, piece) => Math.max(max, piece.sequence_number), 0,
+        ) + 1;
+        nextLetterOptions = generated.pieces.map((piece, index) => ({
+          pieceId: piece.id,
+          letter: piece.letter,
+          sequenceNumber: firstSequence + index,
+        }));
+        if (nextLetterOptions.length > 0) {
           await connection.execute(
             `INSERT INTO match_letters
               (id, match_player_id, sequence_number, letter, status,
                generated_at, activated_at)
-             VALUES (?, ?, ?, ?, 'active', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3))`,
-            [piece.id, player.player_id, firstSequence + index, piece.letter],
+             VALUES ${nextLetterOptions.map(() => "(?, ?, ?, ?, 'active', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3))").join(', ')}`,
+            nextLetterOptions.flatMap((piece) => [
+              piece.pieceId, player.player_id, piece.sequenceNumber, piece.letter,
+            ]),
           );
         }
         player.word_cycle = generated.wordCycle;
@@ -549,6 +553,21 @@ export class MysqlMatchRepository implements MatchRepository {
         livesRemaining,
         gameOver,
         progressionAward,
+        stateAfterMove: {
+          board: {
+            rows: player.board_rows,
+            columns: player.board_columns,
+            version: nextBoardVersion,
+            cells: lifeLost ? [] : boardAfterPlacement.map((cell) => ({
+              pieceId: cell.pieceId,
+              letter: cell.letter,
+              row: cell.row,
+              column: cell.column,
+            })),
+          },
+          letterOptions: nextLetterOptions,
+          wordCycle: parseWordCycle(player.word_cycle),
+        },
       };
     } catch (error) {
       await rollback(connection);
